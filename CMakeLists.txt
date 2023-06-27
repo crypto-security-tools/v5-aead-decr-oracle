@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 2.6)
 project (v5-aead-decr-oracle)
 
+# TODO: REQUIRE BOTAN
+
 SET(EAX_DECR_BINARY eax_decr)
 
 FILE(GLOB_RECURSE SOURCES src/*.cpp)
