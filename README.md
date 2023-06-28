@@ -1,11 +1,9 @@
-# v5-aead-decr-oracle
-Implementation of CFB-downgrade attacks against GnuPG v5 AEAD encryption
 
-# build
+# Test tool for v5 AEAD-to-CFB downgrade attacks
 
-```
-cmake -S . -B build
-cmake --build build/
-```
+## building
 
-add `-j<n>` to the second command to build with n cores.
+* prerequisites:
+  * Botan 3
+  * https://github.com/Taywee/args
+* The include and library directories of these prerequisites must be configured in cmake

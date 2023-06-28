@@ -37,18 +37,22 @@ flags = [
 # a "-std=<something>".
 # For a C project, you would set this to something like 'c99' instead of
 # 'c++11'.
-'-std=c++17',
+'-std=c++20',
 # ...and the same thing goes for the magic -x option which specifies the
 # language that the files to be compiled are written in. This is mostly
 # relevant for c++ headers.
 # For a C project, you would set this to 'c' instead of 'c++'.
 '-x',
 'c++',
-'-isystem', '/opt/gcc-11.2.0/include/c++/11.2.0',
-'-isystem', '/opt/gcc-11.2.0/include/c++/11.2.0/x86_64-pc-linux-gnu',
+#'-isystem', '/opt/gcc-11.2.0/include/c++/11.2.0',
+'-isystem', '/opt/gcc-13.1.0/include/c++/13.1.0',
+#'-isystem', '/opt/gcc-11.2.0/include/c++/11.2.0/x86_64-pc-linux-gnu',
+'-isystem', '/opt/gcc-13.1.0/include/c++/13.1.0/x86_64-pc-linux-gnu',
 '-isystem', '/usr/include',
 '-isystem', '/usr/local/include',
 '-I', 'src',
+'-I', '../args',
+'-I', '/home/fstrenzke/dev/tb_pqc/botan-fse/botan/build/include',
 #'-I',
 #'/usr/include/c++/10/',
 #'-I',
