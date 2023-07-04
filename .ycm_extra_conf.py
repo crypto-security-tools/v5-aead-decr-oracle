@@ -52,6 +52,7 @@ flags = [
 '-isystem', '/usr/local/include',
 '-I', 'src',
 '-I', '../args',
+'-I', '../cpp-subprocess',
 '-I', '/home/fstrenzke/dev/tb_pqc/botan-fse/botan/build/include',
 #'-I',
 #'/usr/include/c++/10/',

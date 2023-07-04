@@ -11,8 +11,12 @@ include_directories(${BOTAN_INCLUDE_DIR})
 set(BOTAN_LIB_DIR "" CACHE STRING "Botan library directory")
 link_directories(${BOTAN_LIB_DIR})
 
-set(TARGS_INCLUDE_DIR "../args" CACHE STRING "include directory https://github.com/Taywee/args")
+set(TARGS_INCLUDE_DIR "../args" CACHE STRING "include directory for https://github.com/Taywee/args")
 include_directories(${TARGS_INCLUDE_DIR})
+
+
+set(CPP_SUBPROCESS_INCLUDE_DIR "../cpp-subprocess" CACHE STRING "include directory for https://github.com/arun11299/cpp-subprocess")
+include_directories(${CPP_SUBPROCESS_INCLUDE_DIR})
 
 
 
@@ -22,4 +26,4 @@ FILE(GLOB_RECURSE SOURCES src/*.cpp)
 
 add_executable(${EAX_DECR_BINARY} ${SOURCES})
 target_compile_options(${EAX_DECR_BINARY} PRIVATE -g -ggdb)
-target_link_libraries(${EAX_DECR_BINARY} -lbotan-3)
+target_link_libraries(${EAX_DECR_BINARY} -lbotan-3 -lpthread)

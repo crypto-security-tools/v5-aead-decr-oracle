@@ -9,10 +9,11 @@
 #include "botan/hex.h"
 #include "botan/base64.h"
 #include "lit_packet.h"
+#include "sed-oracle.h"
 
 args::Group arguments("arguments");
-args::ValueFlag<std::string> input_data_file(arguments, "path", "", {"input-data-file"});
-args::ValueFlag<std::string> session_key(arguments, "session_key", "", {"session key"});
+/*args::ValueFlag<std::string> input_data_file(arguments, "path", "", {"input-data-file"});
+args::ValueFlag<std::string> session_key(arguments, "session_key", "", {"session key"});*/
 
 namespace cli_args
 {
@@ -33,15 +34,44 @@ void ensure_string_arg_is_non_empty(const std::string_view s, const std::string_
     }
 }
 
-void run_self_tests_cmd(args::Subparser& /*parser*/)
+void run_self_tests_cmd(args::Subparser& parser)
 {
 
+    parser.Parse();
     if (run_self_tests() != 0)
     {
         throw Exception("error during self-test");
     }
 }
 
+void invoke_decryption_cmd(args::Subparser& parser)
+{
+
+    args::ValueFlag<std::string> input_data_file_arg(
+        parser, "FILE", "path to file with data to encrypt", {'i', cli_args::input_data_file});
+
+    parser.Parse();
+
+    std::string input_data_file_path = args::get(input_data_file_arg);
+
+    ensure_string_arg_is_non_empty(input_data_file_path, cli_args::input_data_file);
+
+    auto decr_result = invoke_cfb_opgp_decr(openpgp_app_decr_params_t {
+        .app_type         = openpgp_app_e::gnupg,
+        .application_path = "gpg",
+        .ct_file_path     = input_data_file_path,
+    });
+
+    std::cout << "decryption result as text:" << std::endl;
+    std::string text_result;
+    text_result.insert(text_result.end(), decr_result.begin(), decr_result.end());
+    std::cout << text_result << std::endl << std::endl;
+
+
+    std::cout << "decryption result as hex:" << std::endl;
+    auto hex = Botan::hex_encode(std::span(decr_result));
+    std::cout << hex << std::endl << std::endl;
+}
 
 void create_sedp_cmd(args::Subparser& parser)
 {
@@ -131,10 +161,14 @@ int main(int argc, char* argv[])
     args::ArgumentParser p("v5 AEAD CFB-downgrade tool");
     args::Group commands(p, "commands");
     args::CompletionFlag completion(p, {"complete"});
+
     args::Command create_sedp(
         commands, "gen-sedp", "generate a symmetrically encrypted data packet, tag 9", &create_sedp_cmd);
+    args::Command decrypt_with_app(
+        commands, "invoke-decr", "invoke the decryption of a pgp message", &invoke_decryption_cmd);
+
     args::Command self_test(commands, "self-test", "run self-tests", &run_self_tests_cmd);
-    // args::Group arguments(p, "arguments", args::Group::Validators::DontCare, args::Options::Global);
+    args::GlobalOptions globals(p, arguments);
     try
     {
         p.ParseCLI(argc, argv);
