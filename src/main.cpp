@@ -7,6 +7,7 @@
 #include "file_util.h"
 #include "botan/hex.h"
 #include "botan/base64.h"
+#include "lit_packet.h"
 
 args::Group arguments("arguments");
 args::ValueFlag<std::string> input_data_file(arguments, "path", "", {"input-data-file"});
@@ -15,6 +16,7 @@ args::ValueFlag<std::string> session_key(arguments, "session_key", "", {"session
 namespace cli_args {
 const inline std::string input_data_file = "input-data-file";
 const inline std::string output_data_file = "output-data-file";
+const inline std::string plaintext_data_file = "plaintext-data-file";
 const inline std::string session_key = "session-key"; 
 }
 
@@ -43,10 +45,12 @@ void create_sedp_cmd(args::Subparser& parser)
     args::ValueFlag<std::string> input_data_file_arg(parser, "FILE", cli_args::input_data_file, {'i'});
     args::ValueFlag<std::string> output_data_file_arg(parser, "FILE", cli_args::output_data_file, {'o'});
     args::ValueFlag<std::string> session_key_arg(parser, "HEX", cli_args::session_key, {'k'});
+    args::ValueFlag<std::string> plaintext_data_file_arg(parser, "FILE", cli_args::plaintext_data_file, {'p'});
     parser.Parse();
     std::string input_data_file_path = args::get(input_data_file_arg);
     std::string session_key_hex = args::get(session_key_arg);
     std::string output_file_path = args::get(output_data_file_arg);
+    std::string plaintext_file_path = args::get(plaintext_data_file_arg);
 
 
     ensure_string_arg_is_non_empty(input_data_file_path, cli_args::input_data_file);
@@ -58,8 +62,15 @@ void create_sedp_cmd(args::Subparser& parser)
 
     auto input_data = read_binary_file(input_data_file_path);
 
+    literal_data_packet_t lit_dat(literal_data_packet_t::format_e::binary, "", 0, input_data);
+
+    auto lit_enc = lit_dat.get_encoded();
+    if(plaintext_file_path.size() > 0)
+    {
+        write_binary_file(std::span(lit_enc), plaintext_file_path);
+    }
     auto session_key = Botan::hex_decode(session_key_hex.data(), session_key_hex.data() + session_key_hex.size());
-    symm_encr_data_packet_t sedp = symm_encr_data_packet_t::create_sedp(std::span(input_data), std::span(session_key));
+    symm_encr_data_packet_t sedp = symm_encr_data_packet_t::create_sedp(std::span(lit_enc), std::span(session_key));
 
     auto output_data = sedp.get_encoded();
     
