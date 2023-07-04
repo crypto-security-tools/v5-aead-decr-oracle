@@ -44,6 +44,11 @@ std::vector<uint8_t> symm_encr_data_packet_t::get_encoded() const
     std::vector<uint8_t> random_block_plus_two = {
         0x01, 0x02, 0xFB, 0xD3, 0x01, 0x02, 0xFB, 0xD3, 0x01, 0x02, 0xFB, 0xD3, 0x01, 0x02, 0xFB, 0xD3, 0xFB, 0xD3};
 
+    if(m_quick_check != quick_check_spec_e::valid)
+    {
+        random_block_plus_two[random_block_plus_two.size() - 1] -= 1;
+    }
+
     auto dec = Botan::Cipher_Mode::create(cipher_spec, Botan::Cipher_Dir::Encryption);
     std::vector<uint8_t> zero_iv(block_size);
     dec->set_key(m_session_key);
@@ -70,10 +75,11 @@ std::vector<uint8_t> symm_encr_data_packet_t::get_encoded() const
 
 // static
 symm_encr_data_packet_t symm_encr_data_packet_t::create_sedp(std::span<uint8_t> const& data,
-                                                             std::span<uint8_t> session_key)
+                                                             std::span<uint8_t> session_key, quick_check_spec_e quick_check)
 {
     symm_encr_data_packet_t result;
     result.m_data.insert(result.m_data.end(), data.begin(), data.end());
     result.m_session_key.insert(result.m_session_key.end(), session_key.begin(), session_key.end());
+    result.m_quick_check = quick_check;
     return result;
 }
