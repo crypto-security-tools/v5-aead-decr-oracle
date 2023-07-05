@@ -31,7 +31,12 @@ std::vector<uint8_t> packet_t::packet_header(size_t contents_length) const
     }
     else
     {
-        throw Exception("packets with more than two octet length are not supported");
+        // 0xFF as 1st octet, then bodyLen = (2nd_octet << 24) | (3rd_octet << 16) | (4th_octet << 8)  | 5th_octet
+        v.push_back(0xFF);
+        v.push_back(contents_length >> 24);
+        v.push_back(contents_length >> 16);
+        v.push_back(contents_length >> 8);
+        v.push_back(contents_length);
     }
     return v;
 }

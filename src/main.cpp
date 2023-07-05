@@ -23,6 +23,7 @@ const inline std::string plaintext_data_file = "plaintext-data-file";
 const inline std::string session_key         = "session-key";
 const inline std::string reused_pkesk        = "reused-pkesk";
 const inline std::string invalid_quick_check = "invalid-quick-check";
+const inline std::string tmp_msg_file_dir = "tmp-msg-file-dir";
 } // namespace cli_args
 
 
@@ -57,9 +58,9 @@ void invoke_decryption_cmd(args::Subparser& parser)
     ensure_string_arg_is_non_empty(input_data_file_path, cli_args::input_data_file);
 
     auto decr_result = invoke_cfb_opgp_decr(openpgp_app_decr_params_t {
-        .app_type         = openpgp_app_e::gnupg,
-        .application_path = "gpg",
-        .ct_file_path     = input_data_file_path,
+        .app_type            = openpgp_app_e::gnupg,
+        .application_path    = "gpg",
+        .ct_filename_or_data = input_data_file_path,
     });
 
     std::cout << "decryption result as text:" << std::endl;
@@ -71,6 +72,84 @@ void invoke_decryption_cmd(args::Subparser& parser)
     std::cout << "decryption result as hex:" << std::endl;
     auto hex = Botan::hex_encode(std::span(decr_result));
     std::cout << hex << std::endl << std::endl;
+}
+
+
+void decryption_of_random_blocks_cmd(args::Subparser& parser)
+{
+    args::ValueFlag<std::string> reused_pkesk_arg(
+        parser,
+        "FILE",
+        "path to a PGP message file starting with a PKESK packet, which will be extracted and prepended to "
+        "the generated SED packet. The PKESK must be in raw binary format, not ASCII-armored.",
+        {'u', cli_args::reused_pkesk},
+        args::Options::Required);
+    args::ValueFlag<size_t> iterations_arg(parser,
+                                           "COUNT",
+                                           "number of decryption iterations to perform. default value is 1",
+                                           {'c', "iterations"},
+                                           1); // default value "1"
+
+    args::ValueFlag<std::string> tmp_dir_arg(
+        parser,
+        "FILE",
+        "path to the temporary working directory where the OpenPGP input message for the tested application is placed. should be a tmpfs for performance reasons.",
+        {cli_args::tmp_msg_file_dir}, "/tmp");
+
+    /*args::ValueFlag<std::string> ct_file_to_write_arg(
+        parser,
+        "FILE",
+        "path to a file which the generated ciphertext will be written to. Works only with iterations = 1",
+        {cli_args::ct_file_to_write});*/
+
+    parser.Parse();
+
+
+    size_t iterations = args::get(iterations_arg);
+    /*if (ct_file_to_write_arg && iterations != 1)
+    {
+        throw cli_exception_t("iterations must be 1 if ciphertext file should be generated");
+    }*/
+
+    std::string reused_pkesk_path = args::get(reused_pkesk_arg);
+    std::filesystem::path tmp_msg_file_dir = args::get(tmp_dir_arg);
+    std::filesystem::path tmp_msg_file_path = tmp_msg_file_dir / "opgp_att_msg.bin";
+    /*if (ct_file_to_write_arg)
+    {
+        ct_file_to_write_opt = ct_file_to_write;
+    }*/
+    // ensure_string_arg_is_non_empty(reused_pkesk_path, cli_args::reused_pkesk);
+    auto pkesk_bytes                          = read_binary_file(reused_pkesk_path);
+    size_t count_non_empty_decryption_results = 0;
+    std::cout << std::format("running {} iterations\n\n", iterations);
+    for (size_t i = 0; i < iterations; i++)
+    {
+        auto decr_result = cfb_opgp_decr_oracle(
+            openpgp_app_decr_params_t {
+                .app_type         = openpgp_app_e::gnupg,
+                .application_path = "gpg",
+            },
+            100000,
+            std::span(pkesk_bytes),
+            std::span<uint8_t>(),
+            tmp_msg_file_path);
+
+        if (decr_result.size() > 0)
+        {
+            std::cout << std::format("decryption result with size {}\n", decr_result.size());
+            count_non_empty_decryption_results++;
+        }
+        try 
+        {
+        std::filesystem::remove(tmp_msg_file_path);
+                }
+        catch(...)
+        {
+            std::cout << std::format("error deleting tmp message file at {}\n", std::string(tmp_msg_file_path));
+        }
+    }
+    std::cout << std::format(
+        "\n\n{} from {} decryptions returned non-empty data\n", count_non_empty_decryption_results, iterations);
 }
 
 void create_sedp_cmd(args::Subparser& parser)
@@ -130,7 +209,7 @@ void create_sedp_cmd(args::Subparser& parser)
     using enum symm_encr_data_packet_t::quick_check_spec_e;
 
     auto session_key = Botan::hex_decode(session_key_hex.data(), session_key_hex.data() + session_key_hex.size());
-    symm_encr_data_packet_t sedp = symm_encr_data_packet_t::create_sedp(
+    symm_encr_data_packet_t sedp = symm_encr_data_packet_t::create_sedp_from_plaintext(
         std::span(lit_enc), std::span(session_key), invalid_quick_check ? invalid : valid);
 
     auto output_data = sedp.get_encoded();
@@ -166,6 +245,10 @@ int main(int argc, char* argv[])
         commands, "gen-sedp", "generate a symmetrically encrypted data packet, tag 9", &create_sedp_cmd);
     args::Command decrypt_with_app(
         commands, "invoke-decr", "invoke the decryption of a pgp message", &invoke_decryption_cmd);
+    args::Command decryption_of_random_blocks(commands,
+                                              "decr-rnd",
+                                              "invoke the decryption of random data as the SED packet in a gpg message",
+                                              &decryption_of_random_blocks_cmd);
 
     args::Command self_test(commands, "self-test", "run self-tests", &run_self_tests_cmd);
     args::GlobalOptions globals(p, arguments);

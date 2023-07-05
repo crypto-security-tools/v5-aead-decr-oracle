@@ -19,7 +19,7 @@ class packet_t
         legacy,
         new_form
     };
-    packet_t(raw_packet_tags_e raw_tag, header_format_e format);
+    packet_t(raw_packet_tags_e raw_tag, header_format_e format = header_format_e::new_form);
     std::vector<uint8_t> get_encoded() const;
     ~packet_t();
 
