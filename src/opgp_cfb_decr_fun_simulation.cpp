@@ -2,6 +2,7 @@
 #include "opgp_cfb_decr_fun_simulation.h"
 #include "bit_string.h"
 #include "except.h"
+#include "util.h"
 #include <span>
 
 
@@ -13,17 +14,18 @@
 
 using namespace Botan;
 /**
- * AES CFB decryption
+ * AES CFB decryption as specified for OpenPGP (2-step encryption)
  */
-std::vector<uint8_t> openpgp_cfb_decryption_sim (std::span<uint8_t> const& ciphertext, std::optional<std::span<uint8_t>> const& key_opt)
+std::vector<uint8_t> openpgp_cfb_decryption_sim (std::span<uint8_t> ciphertext, std::optional<std::span<uint8_t>> const& key_opt)
 {
     const unsigned block_size = 16;
-    std::string cipher_spec("AES-128/CFB");
     if(!key_opt.has_value())
     {
         throw ::Exception("key not set for function openpgp_cfb_decryption()");
     }
     auto key_span = key_opt.value();
+
+    std::string cipher_spec = botan_aes_cfb_cipher_spec_from_key_byte_len(key_span.size());
     std::vector<uint8_t> key(key_span.begin(), key_span.end());
     std::vector<uint8_t> zero_iv(block_size);
     std::vector<uint8_t> first_ct(&ciphertext[0], &ciphertext[block_size + 2]);

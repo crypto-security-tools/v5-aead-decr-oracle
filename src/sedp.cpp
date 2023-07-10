@@ -8,6 +8,7 @@
 #include <botan/cipher_mode.h>
 #include <botan/hex.h>
 #include "except.h"
+#include "util.h"
 
 symm_encr_data_packet_t::symm_encr_data_packet_t():packet_t(packet_t::raw_packet_tags_e::symm_encr_data) {
 
@@ -30,6 +31,7 @@ std::vector<uint8_t> symm_encr_data_packet_t::aes_sedp_encrypt_payload(std::span
 
     const unsigned block_size = 16;
     // std::string key_len_str = "128";
+#if 0
     if (session_key.size() != 16 && session_key.size() != 32)
     {
 
@@ -37,6 +39,8 @@ std::vector<uint8_t> symm_encr_data_packet_t::aes_sedp_encrypt_payload(std::span
     }
     // std::string cipher_spec("AES-128/CFB");
     std::string cipher_spec = std::format("AES-{}/CFB", session_key.size() * 8);
+#endif
+    std::string cipher_spec = botan_aes_cfb_cipher_spec_from_key_byte_len(session_key.size());
     std::vector<uint8_t> result;
     result.push_back(0x09 | 0xC0); // packet tag with *new packet format*
 

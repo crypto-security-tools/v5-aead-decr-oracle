@@ -13,3 +13,4 @@ build/cscope.out
 tags
 build
 cscope.out
+.clang-complete

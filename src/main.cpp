@@ -1,5 +1,6 @@
 #include <iostream>
 #include <format>
+#include <filesystem>
 #include "blockcipher_blocks.h"
 #include "args.hxx"
 #include "self-test.h"
@@ -10,10 +11,27 @@
 #include "botan/base64.h"
 #include "lit_packet.h"
 #include "sed-oracle.h"
+#include "util.h"
 
 args::Group arguments("arguments");
 /*args::ValueFlag<std::string> input_data_file(arguments, "path", "", {"input-data-file"});
 args::ValueFlag<std::string> session_key(arguments, "session_key", "", {"session key"});*/
+
+
+struct args_info_t
+{
+    const std::string help_text;
+    const std::initializer_list<args::EitherFlag> flags_matcher;
+    const std::string placeholder;
+};
+
+template <typename T> std::unique_ptr<args::ValueFlag<T>> value_flag_from_args_info(args::Group& group, args_info_t const& args_info);
+
+
+template <typename T> std::unique_ptr<args::ValueFlag<T>> value_flag_from_args_info(args::Group& parser, args_info_t const& args_info)
+{
+    return std::make_unique<args::ValueFlag<T>>(parser, args_info.placeholder, args_info.help_text, args_info.flags_matcher);
+};
 
 namespace cli_args
 {
@@ -23,7 +41,17 @@ const inline std::string plaintext_data_file = "plaintext-data-file";
 const inline std::string session_key         = "session-key";
 const inline std::string reused_pkesk        = "reused-pkesk";
 const inline std::string invalid_quick_check = "invalid-quick-check";
-const inline std::string tmp_msg_file_dir = "tmp-msg-file-dir";
+const inline std::string tmp_msg_file_dir    = "tmp-msg-file-dir";
+
+
+static const args_info_t run_time_data_log_dir_info {
+    .help_text =
+        "specifies a directory under which a directory with the name set to the current date time is created and under "
+        "which run time data files such as the generated messages with successful decryption results are stored",
+    .flags_matcher = {"data-log-dir"},
+    .placeholder   = "DIR",
+
+};
 } // namespace cli_args
 
 
@@ -90,20 +118,30 @@ void decryption_of_random_blocks_cmd(args::Subparser& parser)
                                            {'c', "iterations"},
                                            1); // default value "1"
 
-    args::ValueFlag<std::string> tmp_dir_arg(
-        parser,
-        "FILE",
-        "path to the temporary working directory where the OpenPGP input message for the tested application is placed. should be a tmpfs for performance reasons.",
-        {cli_args::tmp_msg_file_dir}, "/tmp");
+    args::ValueFlag<std::string> tmp_dir_arg(parser,
+                                             "FILE",
+                                             "path to the temporary working directory where the OpenPGP input message "
+                                             "for the tested application is placed. Defaults to /tmp "
+                                             "should be a tmpfs for performance reasons.",
+                                             {cli_args::tmp_msg_file_dir},
+                                             "/tmp");
 
-    /*args::ValueFlag<std::string> ct_file_to_write_arg(
-        parser,
-        "FILE",
-        "path to a file which the generated ciphertext will be written to. Works only with iterations = 1",
-        {cli_args::ct_file_to_write});*/
+    args::ValueFlag<std::string> session_key_arg(
+        parser, "HEX", "optional: the session key in hexadecimal encoding. If provided, and run time data logging is used, then also the plaintext of the successfully decrypted packets will be written to the run-time directory.", {'k', cli_args::session_key});
+
+    auto  run_time_data_log_dir_arg_up = 
+        value_flag_from_args_info<std::string>(parser, cli_args::run_time_data_log_dir_info);
+
 
     parser.Parse();
 
+
+    std::string session_key_hex = args::get(session_key_arg);
+    std::vector<uint8_t> session_key;
+    if(session_key_hex.size() > 0)
+    {
+     session_key = Botan::hex_decode(session_key_hex.data(), session_key_hex.data() + session_key_hex.size());
+    }
 
     size_t iterations = args::get(iterations_arg);
     /*if (ct_file_to_write_arg && iterations != 1)
@@ -111,9 +149,13 @@ void decryption_of_random_blocks_cmd(args::Subparser& parser)
         throw cli_exception_t("iterations must be 1 if ciphertext file should be generated");
     }*/
 
-    std::string reused_pkesk_path = args::get(reused_pkesk_arg);
-    std::filesystem::path tmp_msg_file_dir = args::get(tmp_dir_arg);
+    std::string reused_pkesk_path           = args::get(reused_pkesk_arg);
+    std::filesystem::path tmp_msg_file_dir  = args::get(tmp_dir_arg);
     std::filesystem::path tmp_msg_file_path = tmp_msg_file_dir / "opgp_att_msg.bin";
+
+    std::filesystem::path run_time_log_dir_path = args::get(*run_time_data_log_dir_arg_up);
+
+    run_time_ctrl_t rtc(run_time_log_dir_path);
     /*if (ct_file_to_write_arg)
     {
         ct_file_to_write_opt = ct_file_to_write;
@@ -122,28 +164,30 @@ void decryption_of_random_blocks_cmd(args::Subparser& parser)
     auto pkesk_bytes                          = read_binary_file(reused_pkesk_path);
     size_t count_non_empty_decryption_results = 0;
     std::cout << std::format("running {} iterations\n\n", iterations);
-    for (size_t i = 0; i < iterations; i++)
+    for (uint32_t i = 0; i < iterations; i++)
     {
-        auto decr_result = cfb_opgp_decr_oracle(
-            openpgp_app_decr_params_t {
-                .app_type         = openpgp_app_e::gnupg,
-                .application_path = "gpg",
-            },
-            100000,
-            std::span(pkesk_bytes),
-            std::span<uint8_t>(),
-            tmp_msg_file_path);
+        auto decr_result = cfb_opgp_decr_oracle(rtc, i,
+                                                openpgp_app_decr_params_t {
+                                                    .app_type         = openpgp_app_e::gnupg,
+                                                    .application_path = "gpg",
+                                                },
+                                                100000,
+                                                std::span(pkesk_bytes),
+                                                std::span<uint8_t>(),
+                                                tmp_msg_file_path,
+            session_key                                          
+                                                );
 
         if (decr_result.size() > 0)
         {
             std::cout << std::format("decryption result with size {}\n", decr_result.size());
             count_non_empty_decryption_results++;
         }
-        try 
+        try
         {
-        std::filesystem::remove(tmp_msg_file_path);
-                }
-        catch(...)
+            std::filesystem::remove(tmp_msg_file_path);
+        }
+        catch (...)
         {
             std::cout << std::format("error deleting tmp message file at {}\n", std::string(tmp_msg_file_path));
         }
@@ -156,7 +200,7 @@ void create_sedp_cmd(args::Subparser& parser)
 {
 
     args::ValueFlag<std::string> input_data_file_arg(
-        parser, "FILE", "path to file with data to encrypt", {'i', cli_args::input_data_file});
+        parser, "FILE", "path to file with data to encrypt", {'i', cli_args::input_data_file}, args::Options::Required);
     args::ValueFlag<std::string> output_data_file_arg(
         parser, "FILE", "path to the encrypted file to be generated", {'o', cli_args::output_data_file});
     args::ValueFlag<std::string> session_key_arg(
@@ -186,6 +230,7 @@ void create_sedp_cmd(args::Subparser& parser)
     std::string plaintext_file_path  = args::get(plaintext_data_file_arg);
     std::string reused_pkesk_path    = args::get(reused_pkesk_arg);
     bool invalid_quick_check         = args::get(invalid_quick_check_arg);
+
 
 
     ensure_string_arg_is_non_empty(input_data_file_path, cli_args::input_data_file);

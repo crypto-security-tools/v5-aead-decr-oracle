@@ -11,8 +11,28 @@ class packet_t
   public:
     enum class raw_packet_tags_e
     {
-        literal_data   = 0x0b,
-        symm_encr_data = 0x09
+        pkesk = 1,
+        signature = 2,
+        skesk = 3,
+        ops = 4,
+        sec_key = 5,
+        pub_key = 6,
+        sec_sub_key = 7,
+        compressed_data = 8,
+        symm_encr_data = 9,
+        marker = 10, 
+        literal_data   = 11,
+        trust = 12,
+        user_id = 13,
+        pub_sub_key = 14,
+        user_attribute = 15,
+        seipd = 18,
+        mdc = 19,
+        aead = 20,
+        padding = 21,
+        
+
+
     };
     enum class header_format_e
     {
