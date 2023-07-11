@@ -1,11 +1,48 @@
 #include "packet.h"
 #include "except.h"
 
-packet_t::packet_t(raw_packet_tags_e raw_tag, header_format_e format) : m_raw_tag(raw_tag), m_format(format)
+namespace packet
+{
+const std::map<tag_e, std::string> tag2str_map {
+    {tag_e::pkesk, "PKESK"},
+    {tag_e::signature, "SIG"},
+    {tag_e::skesk, "SKESK"},
+    {tag_e::ops, "OPS"},
+    {tag_e::sec_key, "SECKEY"},
+    {tag_e::pub_key, "PUBKEY"},
+    {tag_e::sec_sub_key, "SECSUBKEY"},
+    {tag_e::compressed_data, "COMP"},
+    {tag_e::symm_encr_data, "SED"},
+    {tag_e::marker, "MARKER"},
+    {tag_e::literal_data, "LIT"},
+    {tag_e::trust, "TRUST"},
+    {tag_e::user_id, "UID"},
+    {tag_e::pub_sub_key, "PUBSUBKEY"},
+    {tag_e::user_attribute, "UAT"},
+    {tag_e::seipd, "SEIPD"},
+    {tag_e::mdc, "MDC"},
+    {tag_e::aead, "AEAD"},
+    {tag_e::padding, "PADDING"},
+
+};
+
+bool is_valid_packet_tag(uint8_t tag)
+{
+    for (auto const& key__value : tag2str_map)
+    {
+        if (static_cast<uint8_t>(key__value.first) == tag)
+        {
+            return true;
+        }
+    }
+    return false;
+}
+} // namespace packet
+using namespace packet;
+
+packet_t::packet_t(tag_e raw_tag, header_format_e format) : m_raw_tag(raw_tag), m_format(format)
 {
 }
-
-
 
 
 packet_t::~packet_t()

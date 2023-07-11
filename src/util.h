@@ -22,7 +22,7 @@ class run_time_ctrl_t
         std::filesystem::create_directories(m_run_time_log_dir);
     }
 
-    void potentially_write_run_time_file(std::string const& leaf_name, std::span<uint8_t> data)
+    void potentially_write_run_time_file(std::span<uint8_t> data, std::string const& leaf_name)
     {
         if (m_run_time_log_dir == "")
         {
@@ -35,7 +35,7 @@ class run_time_ctrl_t
         auto file_path = m_run_time_log_dir / leaf_name;
         if (std::filesystem::exists(file_path))
         {
-            throw Exception(std::string("file path ") + file_path.c_str() + " already exisits");
+            throw Exception(std::string("file path ") + file_path.c_str() + " already exists");
         }
         write_binary_file(data, file_path);
     }

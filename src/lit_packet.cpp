@@ -5,7 +5,7 @@ literal_data_packet_t::literal_data_packet_t(format_e format,
                                              std::string_view filename,
                                              uint32_t date,
                                              std::span<uint8_t> data)
-    :packet_t(packet_t::raw_packet_tags_e::literal_data, packet_t::header_format_e::new_form), m_data(), m_format(format), m_filename(filename), m_date(date)
+    :packet_t(packet::tag_e::literal_data, packet::header_format_e::new_form), m_data(), m_format(format), m_filename(filename), m_date(date)
 {
     m_data.assign(data.begin(), data.end());
 }

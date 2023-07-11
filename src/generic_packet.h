@@ -6,9 +6,10 @@
 #include <cstdint>
 #include <span>
 #include <map>
+#include <deque>
 
 
 
-std::string get_packet_sequence (std::span<uint8_t> encoded);
+std::string get_packet_sequence(std::vector<uint8_t> const& encoded_vec);
 
 #endif /* ____GENERIC_PACKET_H */

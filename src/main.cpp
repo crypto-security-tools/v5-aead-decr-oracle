@@ -12,10 +12,9 @@
 #include "lit_packet.h"
 #include "sed-oracle.h"
 #include "util.h"
+#include "generic_packet.h"
 
 args::Group arguments("arguments");
-/*args::ValueFlag<std::string> input_data_file(arguments, "path", "", {"input-data-file"});
-args::ValueFlag<std::string> session_key(arguments, "session_key", "", {"session key"});*/
 
 
 struct args_info_t
@@ -25,12 +24,15 @@ struct args_info_t
     const std::string placeholder;
 };
 
-template <typename T> std::unique_ptr<args::ValueFlag<T>> value_flag_from_args_info(args::Group& group, args_info_t const& args_info);
+template <typename T>
+std::unique_ptr<args::ValueFlag<T>> value_flag_from_args_info(args::Group& group, args_info_t const& args_info);
 
 
-template <typename T> std::unique_ptr<args::ValueFlag<T>> value_flag_from_args_info(args::Group& parser, args_info_t const& args_info)
+template <typename T>
+std::unique_ptr<args::ValueFlag<T>> value_flag_from_args_info(args::Group& parser, args_info_t const& args_info)
 {
-    return std::make_unique<args::ValueFlag<T>>(parser, args_info.placeholder, args_info.help_text, args_info.flags_matcher);
+    return std::make_unique<args::ValueFlag<T>>(
+        parser, args_info.placeholder, args_info.help_text, args_info.flags_matcher);
 };
 
 namespace cli_args
@@ -73,6 +75,24 @@ void run_self_tests_cmd(args::Subparser& parser)
     }
 }
 
+void parse_packet_cmd(args::Subparser& parser)
+{
+    args::ValueFlag<std::string> input_data_file_arg(
+        parser,
+        "FILE",
+        "path to file to parse, must contain raw binary data, ASCII armour not supported",
+        {'i', cli_args::input_data_file},
+        args::Options::Required);
+
+    parser.Parse();
+
+
+    std::string input_data_file_path = args::get(input_data_file_arg);
+
+    auto bin_data = read_binary_file(input_data_file_path);
+
+    std::cout << get_packet_sequence(bin_data) << std::endl;
+}
 void invoke_decryption_cmd(args::Subparser& parser)
 {
 
@@ -127,9 +147,13 @@ void decryption_of_random_blocks_cmd(args::Subparser& parser)
                                              "/tmp");
 
     args::ValueFlag<std::string> session_key_arg(
-        parser, "HEX", "optional: the session key in hexadecimal encoding. If provided, and run time data logging is used, then also the plaintext of the successfully decrypted packets will be written to the run-time directory.", {'k', cli_args::session_key});
+        parser,
+        "HEX",
+        "optional: the session key in hexadecimal encoding. If provided, and run time data logging is used, then also "
+        "the plaintext of the successfully decrypted packets will be written to the run-time directory.",
+        {'k', cli_args::session_key});
 
-    auto  run_time_data_log_dir_arg_up = 
+    auto run_time_data_log_dir_arg_up =
         value_flag_from_args_info<std::string>(parser, cli_args::run_time_data_log_dir_info);
 
 
@@ -138,16 +162,12 @@ void decryption_of_random_blocks_cmd(args::Subparser& parser)
 
     std::string session_key_hex = args::get(session_key_arg);
     std::vector<uint8_t> session_key;
-    if(session_key_hex.size() > 0)
+    if (session_key_hex.size() > 0)
     {
-     session_key = Botan::hex_decode(session_key_hex.data(), session_key_hex.data() + session_key_hex.size());
+        session_key = Botan::hex_decode(session_key_hex.data(), session_key_hex.data() + session_key_hex.size());
     }
 
     size_t iterations = args::get(iterations_arg);
-    /*if (ct_file_to_write_arg && iterations != 1)
-    {
-        throw cli_exception_t("iterations must be 1 if ciphertext file should be generated");
-    }*/
 
     std::string reused_pkesk_path           = args::get(reused_pkesk_arg);
     std::filesystem::path tmp_msg_file_dir  = args::get(tmp_dir_arg);
@@ -156,17 +176,13 @@ void decryption_of_random_blocks_cmd(args::Subparser& parser)
     std::filesystem::path run_time_log_dir_path = args::get(*run_time_data_log_dir_arg_up);
 
     run_time_ctrl_t rtc(run_time_log_dir_path);
-    /*if (ct_file_to_write_arg)
-    {
-        ct_file_to_write_opt = ct_file_to_write;
-    }*/
-    // ensure_string_arg_is_non_empty(reused_pkesk_path, cli_args::reused_pkesk);
     auto pkesk_bytes                          = read_binary_file(reused_pkesk_path);
     size_t count_non_empty_decryption_results = 0;
     std::cout << std::format("running {} iterations\n\n", iterations);
     for (uint32_t i = 0; i < iterations; i++)
     {
-        auto decr_result = cfb_opgp_decr_oracle(rtc, i,
+        auto decr_result = cfb_opgp_decr_oracle(rtc,
+                                                i,
                                                 openpgp_app_decr_params_t {
                                                     .app_type         = openpgp_app_e::gnupg,
                                                     .application_path = "gpg",
@@ -175,8 +191,7 @@ void decryption_of_random_blocks_cmd(args::Subparser& parser)
                                                 std::span(pkesk_bytes),
                                                 std::span<uint8_t>(),
                                                 tmp_msg_file_path,
-            session_key                                          
-                                                );
+                                                session_key);
 
         if (decr_result.size() > 0)
         {
@@ -230,7 +245,6 @@ void create_sedp_cmd(args::Subparser& parser)
     std::string plaintext_file_path  = args::get(plaintext_data_file_arg);
     std::string reused_pkesk_path    = args::get(reused_pkesk_arg);
     bool invalid_quick_check         = args::get(invalid_quick_check_arg);
-
 
 
     ensure_string_arg_is_non_empty(input_data_file_path, cli_args::input_data_file);
@@ -288,6 +302,12 @@ int main(int argc, char* argv[])
 
     args::Command create_sedp(
         commands, "gen-sedp", "generate a symmetrically encrypted data packet, tag 9", &create_sedp_cmd);
+
+    args::Command parse_packets(
+        commands,
+        "dump",
+        "parse and display packet sequence (top-level sequence only, no decryption or decompression is done)",
+        &parse_packet_cmd);
     args::Command decrypt_with_app(
         commands, "invoke-decr", "invoke the decryption of a pgp message", &invoke_decryption_cmd);
     args::Command decryption_of_random_blocks(commands,

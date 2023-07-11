@@ -101,20 +101,17 @@ std::vector<uint8_t> cfb_opgp_decr_oracle(run_time_ctrl_t rtc,
     pgp_msg.assign(pkesk.begin(), pkesk.end());
     pgp_msg.insert(pgp_msg.end(), encoded_sed.begin(), encoded_sed.end());
     write_binary_file(std::span(pgp_msg), msg_file_path);
-    /*if(msg_file_to_write_opt.has_value())
-    {
-        write_binary_file(std::span(pgp_msg), msg_file_to_write_opt.value());
-    }*/
     auto decr_params_copy(decr_params);
     decr_params_copy.ct_filename_or_data = msg_file_path;
     auto decryption_result               = invoke_cfb_opgp_decr(decr_params_copy);
     if (decryption_result.size() > 0)
     {
-        rtc.potentially_write_run_time_file(std::format("random_decryption_input-{}", iter), pgp_msg);
+        rtc.potentially_write_run_time_file(pgp_msg, std::format("random_decryption_input-{}", iter));
+        std::cout << "size of session key = " << session_key.size() << std::endl;
         if (session_key.size() > 0)
         {
             auto plaintext = openpgp_cfb_decryption_sim(ciphertext, std::make_optional(std::span(session_key)));
-            write_binary_file(std::span(plaintext), std::format("random_decryption_plaintext-{}", iter));
+            rtc.potentially_write_run_time_file(std::span(plaintext), std::format("random_decryption_plaintext-{}", iter) );
         }
     }
     return decryption_result;

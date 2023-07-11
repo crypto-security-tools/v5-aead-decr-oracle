@@ -10,7 +10,7 @@
 #include "except.h"
 #include "util.h"
 
-symm_encr_data_packet_t::symm_encr_data_packet_t():packet_t(packet_t::raw_packet_tags_e::symm_encr_data) {
+symm_encr_data_packet_t::symm_encr_data_packet_t():packet_t(packet::tag_e::symm_encr_data) {
 
 };
 
