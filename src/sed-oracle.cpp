@@ -77,15 +77,15 @@ std::vector<uint8_t> cfb_opgp_decr_oracle(run_time_ctrl_t rtc,
                                           uint32_t iter,
                                           openpgp_app_decr_params_t const& decr_params,
                                           size_t nb_leading_random_bytes,
-                                          std::span<uint8_t> pkesk,
-                                          std::span<uint8_t> oracle_blocks,
+                                          std::span<const uint8_t> pkesk,
+                                          std::span<const uint8_t> oracle_blocks,
                                           std::filesystem::path const& msg_file_path,
                                           std::span<uint8_t> session_key)
 {
     const unsigned block_size = 16;
     if (!std::holds_alternative<std::monostate>(decr_params.ct_filename_or_data))
     {
-        throw Exception("ciphertext or filename specified in decryption parameters, this may not be the case here");
+        throw Exception("ciphertext or filename specified in decryption parameters, this may not be done here");
     }
 
     std::vector<uint8_t> ciphertext;
@@ -107,12 +107,36 @@ std::vector<uint8_t> cfb_opgp_decr_oracle(run_time_ctrl_t rtc,
     if (decryption_result.size() > 0)
     {
         rtc.potentially_write_run_time_file(pgp_msg, std::format("random_decryption_input-{}", iter));
-        std::cout << "size of session key = " << session_key.size() << std::endl;
+        //std::cout << "size of session key = " << session_key.size() << std::endl;
         if (session_key.size() > 0)
         {
             auto plaintext = openpgp_cfb_decryption_sim(ciphertext, std::make_optional(std::span(session_key)));
             rtc.potentially_write_run_time_file(std::span(plaintext), std::format("random_decryption_plaintext-{}", iter) );
         }
+        rtc.potentially_write_run_time_file(decryption_result, std::format("random_decryption_result"));
     }
     return decryption_result;
+}
+
+
+std::vector<uint8_t> oracle_blocks_recovery_from_cfb_decryption_result(std::span<uint8_t> cfb_decryption_result, uint32_t nb_query_blocks_repetitions, uint32_t nb_leading_random_bytes_len, std::span<uint8_t> second_step_ct )
+{
+    /**
+     * nb_query_blocks_repetitions is the maximal number of equal blocks that we can expect to find. Due to arbitrary offsets into the ciphertext and cutoffs at the end, the actual must be expected to be less.
+     */
+    uint32_t second_step_ciphertext_len = second_step_ct.size();
+    uint32_t max_pattern_area_length_from_ct = second_step_ciphertext_len - nb_leading_random_bytes_len;
+    uint32_t max_pattern_area_length = std::min(max_pattern_area_length_from_ct, second_step_ciphertext_len);
+    unsigned block_size = 16;
+    // we iterate through the possible offsets that the decryption result has in the ciphertext.
+    // for each of these offsets, we compute the presumed query results (i.e. reconstruct the block decryptions
+    // from the CFB-decrypted result).
+    for(uint32_t offset_in_ct  = 0; offset_in_ct <= max_offset ; offset_in_ct++)
+    {
+        uint32_t offset_in_block = offset_in_ct % block_size;
+        uint32_t next_block_index = ((offset_in_ct + block_size) / block_size) - 1;
+        uint32_t next_block_begin = offset_in_ct + ( block_size - offset_in_block);
+        for(uint32_t i = next_block_begin; i < 
+        //std::span<const uint8_t> 
+    }
 }

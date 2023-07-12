@@ -125,15 +125,39 @@ void invoke_decryption_cmd(args::Subparser& parser)
 
 void decryption_of_random_blocks_cmd(args::Subparser& parser)
 {
+    args::ValueFlag<uint32_t> nb_leading_random_blocks_arg(
+        parser,
+        "BLOCK-COUNT",
+        "Number of leading random blocks at the start of the 2nd-step CFB ciphertext.",
+        {"l", "nb-leading-random-blocks"},
+        args::Options::Required | args::Options::Single);
+
     args::ValueFlag<std::string> reused_pkesk_arg(
         parser,
         "FILE",
         "path to a PGP message file starting with a PKESK packet, which will be extracted and prepended to "
         "the generated SED packet. The PKESK must be in raw binary format, not ASCII-armored.",
         {'u', cli_args::reused_pkesk},
-        args::Options::Required);
+        args::Options::Required | args::Options::Single);
+    args::ValueFlag<std::string> file_with_query_data_arg(
+        parser,
+        "FILE",
+        "path to a file containing the blocks to be AES-decrypted in binary format. The file length must be a multiple "
+        "of 16 bytes.",
+        {"file-with-query-data"},
+        args::Options::Single);
+
+    args::ValueFlag<uint32_t> query_data_repetition_arg(
+        parser,
+        "REPETITION-COUNT",
+        "Number of times to repeat the query data specified in the file-with-query-data. Required if "
+        "file-with-query-data is used.",
+        {"query-repeat-count"},
+        0, // default value
+        args::Options::Single);
+
     args::ValueFlag<size_t> iterations_arg(parser,
-                                           "COUNT",
+                                           "ITERATIONS-COUNT",
                                            "number of decryption iterations to perform. default value is 1",
                                            {'c', "iterations"},
                                            1); // default value "1"
@@ -169,9 +193,34 @@ void decryption_of_random_blocks_cmd(args::Subparser& parser)
 
     size_t iterations = args::get(iterations_arg);
 
+    uint32_t query_data_repetitions         = args::get(query_data_repetition_arg);
+    uint32_t nb_leading_random_blocks       = args::get(nb_leading_random_blocks_arg);
     std::string reused_pkesk_path           = args::get(reused_pkesk_arg);
     std::filesystem::path tmp_msg_file_dir  = args::get(tmp_dir_arg);
     std::filesystem::path tmp_msg_file_path = tmp_msg_file_dir / "opgp_att_msg.bin";
+
+    std::filesystem::path file_with_query_data_path = args::get(file_with_query_data_arg);
+    if (file_with_query_data_path == "" && query_data_repetitions == 0)
+    {
+        throw cli_exception_t(
+            "must provide --query-repeat-count with a positive (non-zero) value if a query data file is specified");
+    }
+
+    auto query_data_base = read_binary_file(file_with_query_data_path);
+    if (query_data_base.size() % 16)
+    {
+        throw Exception("query data file must have a size of a multiple of 16 bytes");
+    }
+    if (query_data_base.size() * query_data_repetitions > 100 * 1000 * 1000)
+    {
+        throw Exception("trying to create query data of more than 100 MB, this is prohibited");
+    }
+    std::vector<uint8_t> query_blocks;
+    for (uint32_t i = 0; i < query_data_repetitions; i++)
+    {
+        query_blocks.insert(query_blocks.end(), query_data_base.begin(), query_data_base.end());
+    }
+
 
     std::filesystem::path run_time_log_dir_path = args::get(*run_time_data_log_dir_arg_up);
 
@@ -187,9 +236,9 @@ void decryption_of_random_blocks_cmd(args::Subparser& parser)
                                                     .app_type         = openpgp_app_e::gnupg,
                                                     .application_path = "gpg",
                                                 },
-                                                100000,
+                                                nb_leading_random_blocks,
                                                 std::span(pkesk_bytes),
-                                                std::span<uint8_t>(),
+                                                query_blocks,
                                                 tmp_msg_file_path,
                                                 session_key);
 
@@ -204,12 +253,17 @@ void decryption_of_random_blocks_cmd(args::Subparser& parser)
         }
         catch (...)
         {
-            std::cout << std::format("error deleting tmp message file at {}\n", std::string(tmp_msg_file_path));
+            std::cerr << std::format("error deleting tmp message file at {}\n", std::string(tmp_msg_file_path));
         }
     }
     std::cout << std::format(
         "\n\n{} from {} decryptions returned non-empty data\n", count_non_empty_decryption_results, iterations);
 }
+
+/*
+void oracle_encr_zero_block_cmd(args::Subparser& parser)
+{
+}*/
 
 void create_sedp_cmd(args::Subparser& parser)
 {
