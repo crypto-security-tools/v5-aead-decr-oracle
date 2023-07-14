@@ -16,7 +16,7 @@ using namespace Botan;
 /**
  * AES CFB decryption as specified for OpenPGP (2-step encryption)
  */
-std::vector<uint8_t> openpgp_cfb_decryption_sim (std::span<uint8_t> ciphertext, std::optional<std::span<uint8_t>> const& key_opt)
+std::vector<uint8_t> openpgp_cfb_decryption_sim (std::span<const uint8_t> ciphertext, std::optional<std::span<const uint8_t>> key_opt)
 {
     const unsigned block_size = 16;
     if(!key_opt.has_value())
@@ -34,13 +34,13 @@ std::vector<uint8_t> openpgp_cfb_decryption_sim (std::span<uint8_t> ciphertext, 
     auto dec = Botan::Cipher_Mode::create(cipher_spec, Botan::Cipher_Dir::Decryption);
     dec->set_key(key);
     dec->start(zero_iv);
-    std::cout << "decrypting ciphertext 1 of 2..." << std::endl;
+    //std::cout << "decrypting ciphertext 1 of 2..." << std::endl;
     dec->finish(first_ct);
 
     std::vector<uint8_t> iv_for_2nd_ct(&first_ct[2], &first_ct[2+block_size]);
     dec->set_key(key);
     dec->start(iv_for_2nd_ct);
-    std::cout << "decrypting ciphertext 2 of 2..." << std::endl;
+    //std::cout << "decrypting ciphertext 2 of 2..." << std::endl;
     dec->finish(second_ct);
     return second_ct;
 

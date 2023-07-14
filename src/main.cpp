@@ -122,6 +122,92 @@ void invoke_decryption_cmd(args::Subparser& parser)
     std::cout << hex << std::endl << std::endl;
 }
 
+#if 0
+void query_oracle_for_file_cmd(args::Subparser& parser)
+{
+
+
+    args::ValueFlag<std::string> input_data_file_arg(
+        parser,
+        "FILE",
+        "path to file to parse, must contain raw binary data, ASCII armour not supported",
+        {'i', cli_args::input_data_file},
+        args::Options::Required);
+
+
+
+    args::ValueFlag<std::string> tmp_dir_arg(parser,
+                                             "FILE",
+                                             "path to the temporary working directory where the OpenPGP input message "
+                                             "for the tested application is placed. Defaults to /tmp "
+                                             "should be a tmpfs for performance reasons.",
+                                             {cli_args::tmp_msg_file_dir},
+                                             "/tmp");
+
+    args::ValueFlag<std::string> session_key_arg(
+        parser,
+        "HEX",
+        "optional: the session key in hexadecimal encoding. If provided, and run time data logging is used, then also "
+        "the plaintext of the successfully decrypted packets will be written to the run-time directory.",
+        {'k', cli_args::session_key});
+
+
+    auto run_time_data_log_dir_arg_up =
+        value_flag_from_args_info<std::string>(parser, cli_args::run_time_data_log_dir_info);
+
+    parser.Parse();
+
+
+
+    std::string session_key_hex = args::get(session_key_arg);
+    std::vector<uint8_t> session_key;
+    if (session_key_hex.size() > 0)
+    {
+        session_key = Botan::hex_decode(session_key_hex.data(), session_key_hex.data() + session_key_hex.size());
+    }
+
+
+    std::filesystem::path tmp_msg_file_dir  = args::get(tmp_dir_arg);
+    std::filesystem::path tmp_msg_file_path = tmp_msg_file_dir / "opgp_att_msg.bin";
+
+    std::filesystem::path input_data_file_path = args::get(input_data_file_arg);
+
+    auto input_data = read_binary_file(input_data_file_path);
+    std::vector<uint8_t> query_blocks;
+
+
+    std::filesystem::path run_time_log_dir_path = args::get(*run_time_data_log_dir_arg_up);
+
+    run_time_ctrl_t rtc(run_time_log_dir_path);
+
+   openpgp_app_decr_params_t decr_params ( {.app_type = openpgp_app_e::gnupg, .ct_filename_or_data = input_data_file_path }); 
+        auto decryption_result = invoke_cfb_opgp_decr(decr_params);
+
+        std::cout << std::format("decryption result with size {}\n", decryption_result.size());
+#if 0
+        auto recovered_blocks = oracle_blocks_recovery_from_cfb_decryption_result(
+            decryption_result, nb_blocks_in_single_query_sequence, second_step_ct);
+        if (decr_result.size() > 0)
+        {
+            count_non_empty_decryption_results++;
+        }
+        if(recovered_blocks.size() > 0)
+        {
+            std::cout << std::format("recovered oracle data of size {}\n", recovered_blocks.size());
+            count_non_empty_recovered_blocks++;
+        }
+        try
+        {
+            std::filesystem::remove(tmp_msg_file_path);
+        }
+        catch (...)
+        {
+            std::cerr << std::format("error deleting tmp message file at {}\n", std::string(tmp_msg_file_path));
+        }
+#endif
+    
+}
+#endif
 
 void decryption_of_random_blocks_cmd(args::Subparser& parser)
 {
@@ -177,11 +263,12 @@ void decryption_of_random_blocks_cmd(args::Subparser& parser)
         "the plaintext of the successfully decrypted packets will be written to the run-time directory.",
         {'k', cli_args::session_key});
 
+
     auto run_time_data_log_dir_arg_up =
         value_flag_from_args_info<std::string>(parser, cli_args::run_time_data_log_dir_info);
 
-
     parser.Parse();
+
 
 
     std::string session_key_hex = args::get(session_key_arg);
@@ -227,10 +314,11 @@ void decryption_of_random_blocks_cmd(args::Subparser& parser)
     run_time_ctrl_t rtc(run_time_log_dir_path);
     auto pkesk_bytes                          = read_binary_file(reused_pkesk_path);
     size_t count_non_empty_decryption_results = 0;
+    size_t count_non_empty_recovered_blocks = 0;
     std::cout << std::format("running {} iterations\n\n", iterations);
     for (uint32_t i = 0; i < iterations; i++)
     {
-        auto decr_result = cfb_opgp_decr_oracle(rtc,
+        auto decr_result_set = cfb_opgp_decr_oracle(rtc,
                                                 i,
                                                 openpgp_app_decr_params_t {
                                                     .app_type         = openpgp_app_e::gnupg,
@@ -242,10 +330,17 @@ void decryption_of_random_blocks_cmd(args::Subparser& parser)
                                                 tmp_msg_file_path,
                                                 session_key);
 
+        auto decr_result = decr_result_set.decryption_result;
+        auto recovered_blocks = decr_result_set.recovered_encrypted_blocks;
         if (decr_result.size() > 0)
         {
             std::cout << std::format("decryption result with size {}\n", decr_result.size());
             count_non_empty_decryption_results++;
+        }
+        if(recovered_blocks.size() > 0)
+        {
+            std::cout << std::format("recovered oracle data of size {}\n", recovered_blocks.size());
+            count_non_empty_recovered_blocks++;
         }
         try
         {
@@ -257,7 +352,9 @@ void decryption_of_random_blocks_cmd(args::Subparser& parser)
         }
     }
     std::cout << std::format(
-        "\n\n{} from {} decryptions returned non-empty data\n", count_non_empty_decryption_results, iterations);
+        "\n\n{} from {} decryptions returned non-empty decryption results.\n", count_non_empty_decryption_results, iterations);
+    std::cout << std::format(
+        "For {} decryptions the oracle data was recovered.\n", count_non_empty_recovered_blocks);
 }
 
 /*

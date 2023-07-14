@@ -65,8 +65,9 @@ std::vector<uint8_t> packet_t::packet_header(size_t contents_length) const
     else if (contents_length <= 8383)
     {
         // bodyLen = ((1st_octet - 192) << 8) + (2nd_octet) + 192
-        v.push_back((contents_length >> 8) + 192);
-        v.push_back((contents_length & 0xFF) - 192);
+        uint32_t len_to_encode = contents_length - 192;
+        v.push_back((len_to_encode >> 8) + 192);
+        v.push_back((len_to_encode& 0xFF));
     }
     else
     {
