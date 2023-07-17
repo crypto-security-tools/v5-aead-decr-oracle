@@ -1,7 +1,7 @@
 
 #include "self-test.h"
 #include "opgp_cfb_decr_fun_simulation.h"
-
+#include "test_detect_pattern.h"
 
 namespace {
 
@@ -18,5 +18,9 @@ namespace {
 int run_self_tests()
 {
     test_simulated_cfb_decryption();
+    if(!test_detect_pattern())
+    {
+        return 1;
+    }
     return 0;
 }

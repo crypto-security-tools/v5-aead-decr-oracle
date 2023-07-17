@@ -48,6 +48,6 @@ class run_time_ctrl_t
 std::string botan_aes_cfb_cipher_spec_from_key_byte_len(unsigned key_byte_len);
 
 
-void ensure_lenght_is_multiple_of_aes_block_size(std::span<const uint8_t> x);
+void lenght_is_multiple_of_aes_block_size_or_throw(std::span<const uint8_t> x);
 
 #endif /* ____UTIL_H */

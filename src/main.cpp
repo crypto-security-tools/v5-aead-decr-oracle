@@ -13,6 +13,7 @@
 #include "sed-oracle.h"
 #include "util.h"
 #include "generic_packet.h"
+#include "detect_pattern.h"
 
 args::Group arguments("arguments");
 
@@ -209,6 +210,27 @@ void query_oracle_for_file_cmd(args::Subparser& parser)
 }
 #endif
 
+void check_pattern_rep_in_cfb_plaintext_cmd(args::Subparser& parser)
+{
+
+    args::ValueFlag<std::string> input_data_file_arg(
+        parser, "FILE", "path to file with plaintext data to search", {'i', cli_args::input_data_file}, args::Options::Required);
+
+    parser.Parse();
+    std::string input_data_file_path = args::get(input_data_file_arg);
+    auto input_data = read_binary_file(input_data_file_path);
+
+    if(detect_pattern::has_byte_string_repeated_block_at_any_offset(input_data, 1))
+    {
+        std::cout << "detected block pattern repetition of length 1\n";
+    }
+    else
+    {
+        std::cout << "no pattern repetition found\n";
+    }
+
+
+}
 void decryption_of_random_blocks_cmd(args::Subparser& parser)
 {
     args::ValueFlag<uint32_t> nb_leading_random_blocks_arg(
@@ -225,6 +247,7 @@ void decryption_of_random_blocks_cmd(args::Subparser& parser)
         "the generated SED packet. The PKESK must be in raw binary format, not ASCII-armored.",
         {'u', cli_args::reused_pkesk},
         args::Options::Required | args::Options::Single);
+
     args::ValueFlag<std::string> file_with_query_data_arg(
         parser,
         "FILE",
@@ -286,6 +309,8 @@ void decryption_of_random_blocks_cmd(args::Subparser& parser)
     std::filesystem::path tmp_msg_file_dir  = args::get(tmp_dir_arg);
     std::filesystem::path tmp_msg_file_path = tmp_msg_file_dir / "opgp_att_msg.bin";
 
+    const unsigned block_size = 16;
+
     std::filesystem::path file_with_query_data_path = args::get(file_with_query_data_arg);
     if (file_with_query_data_path == "" && query_data_repetitions == 0)
     {
@@ -294,10 +319,11 @@ void decryption_of_random_blocks_cmd(args::Subparser& parser)
     }
 
     auto query_data_base = read_binary_file(file_with_query_data_path);
-    if (query_data_base.size() % 16)
+    if (query_data_base.size() % block_size)
     {
         throw Exception("query data file must have a size of a multiple of 16 bytes");
     }
+    uint32_t nb_blocks_in_query_data_pattern = query_data_base.size();
     if (query_data_base.size() * query_data_repetitions > 100 * 1000 * 1000)
     {
         throw Exception("trying to create query data of more than 100 MB, this is prohibited");
@@ -327,6 +353,7 @@ void decryption_of_random_blocks_cmd(args::Subparser& parser)
                                                 nb_leading_random_blocks,
                                                 std::span(pkesk_bytes),
                                                 query_blocks,
+                                                nb_blocks_in_query_data_pattern,
                                                 tmp_msg_file_path,
                                                 session_key);
 
@@ -465,6 +492,12 @@ int main(int argc, char* argv[])
                                               "decr-rnd",
                                               "invoke the decryption of random data as the SED packet in a gpg message",
                                               &decryption_of_random_blocks_cmd);
+
+    args::Command check_pattern_rep_in_cfb_plaintext(commands,
+            "detect-pattern",
+            "check a binary input file for the occurrence of directly adjacent repeated blocks",
+            &check_pattern_rep_in_cfb_plaintext_cmd
+            );
 
     args::Command self_test(commands, "self-test", "run self-tests", &run_self_tests_cmd);
     args::GlobalOptions globals(p, arguments);

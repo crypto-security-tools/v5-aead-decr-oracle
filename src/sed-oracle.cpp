@@ -10,6 +10,7 @@
 #include <iostream>
 #include "util.h"
 #include "opgp_cfb_decr_fun_simulation.h"
+#include "detect_pattern.h"
 
 
 // Note: boost.process seems badly maintained: https://github.com/bitcoin/bitcoin/issues/24907
@@ -109,16 +110,19 @@ std::vector<uint8_t> invoke_cfb_opgp_decr(openpgp_app_decr_params_t const& decr_
     if (std::holds_alternative<std::string>(decr_params.ct_filename_or_data))
     {
         // std::cout << "creating process with file-based decryption..." << std::endl;
-        p = std::unique_ptr<sp::Popen>(new sp::Popen(
-            {decr_params.application_path, "--decrypt", std::get<std::string>(decr_params.ct_filename_or_data)},
-            sp::output {sp::PIPE},
-            sp::error {sp::PIPE}));
+        p = std::unique_ptr<sp::Popen>(new sp::Popen({decr_params.application_path,
+                                                      "--batch",
+                                                      "--decrypt",
+                                                      std::get<std::string>(decr_params.ct_filename_or_data)},
+                                                     sp::output {sp::PIPE},
+                                                     sp::error {sp::PIPE},
+                                                     sp::defer_spawn {true}));
     }
     else if (std::holds_alternative<std::vector<uint8_t>>(decr_params.ct_filename_or_data))
     {
         //        throw Exception("stdin input to appication not available");
-        p = std::unique_ptr<sp::Popen>(
-            new sp::Popen({decr_params.application_path, "--decrypt"}, sp::output {sp::PIPE}, sp::error {sp::PIPE}));
+        p            = std::unique_ptr<sp::Popen>(new sp::Popen(
+            {decr_params.application_path, "--batch", "--decrypt"}, sp::output {sp::PIPE}, sp::error {sp::PIPE}, sp::defer_spawn {true}));
         auto ct_data = std::get<std::vector<uint8_t>>(decr_params.ct_filename_or_data);
         for (size_t i = 0; i < ct_data.size(); i++)
         {
@@ -130,9 +134,33 @@ std::vector<uint8_t> invoke_cfb_opgp_decr(openpgp_app_decr_params_t const& decr_
         throw Exception("internal error: neither file nor data supplied for ciphertext");
     }
 
-    auto stdout_stderr = p->communicate(to_stdin);
-    auto obuf          = stdout_stderr.first;
-    auto errbuf        = stdout_stderr.second;
+
+    // auto stdout_stderr = p->communicate(to_stdin);
+    p->start_process();
+    p->send(to_stdin);
+    int poll       = p->poll();
+    uint32_t count = 0;
+    while (poll == -1)
+    {
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        poll = p->poll();
+        if (count++ > 1000)
+        {
+            break;
+        }
+    }
+    std::cout << std::format("poll = {}\n", poll);
+    if (poll == -1)
+    {
+        std::cout << "killing process ...\n";
+        p->kill();
+        return std::vector<uint8_t>();
+    }
+    std::cout << "calling communicate ... ";
+    auto stdout_stderr = p->communicate();
+    std::cout << "... finished\n";
+    auto obuf   = stdout_stderr.first;
+    auto errbuf = stdout_stderr.second;
 
     if (obuf.length)
     {
@@ -159,6 +187,7 @@ cfb_decr_oracle_result_t cfb_opgp_decr_oracle(run_time_ctrl_t rtc,
                                               size_t nb_leading_random_bytes,
                                               std::span<const uint8_t> pkesk,
                                               std::span<const uint8_t> oracle_blocks,
+                                              uint32_t oracle_pattern_len_in_blocks,
                                               std::filesystem::path const& msg_file_path,
                                               std::span<const uint8_t> session_key)
 {
@@ -167,7 +196,8 @@ cfb_decr_oracle_result_t cfb_opgp_decr_oracle(run_time_ctrl_t rtc,
     {
         throw Exception("ciphertext or filename specified in decryption parameters, this may not be done here");
     }
-    ensure_lenght_is_multiple_of_aes_block_size(oracle_blocks);
+    lenght_is_multiple_of_aes_block_size_or_throw(oracle_blocks);
+    uint32_t nb_oracle_blocks                 = oracle_blocks.size() / block_size;
     size_t nb_leading_random_blocks           = (nb_leading_random_bytes + block_size - 1) / block_size;
     size_t nb_leading_random_bytes_rounded_up = nb_leading_random_bytes * block_size;
     std::vector<uint8_t> first_step_ct(block_size + 2); // the 18 first zero bytes form the 1st-step ciphertext
@@ -190,21 +220,26 @@ cfb_decr_oracle_result_t cfb_opgp_decr_oracle(run_time_ctrl_t rtc,
     std::vector<uint8_t> recovered_blocks;
     if (decryption_result.size() > 0)
     {
-        rtc.potentially_write_run_time_file(pgp_msg, std::format("random_decryption_input-{}", iter));
-        // std::cout << "size of session key = " << session_key.size() << std::endl;
-        if (session_key.size() > 0)
+        // check for block repetition pattern in CFB plaintext
+        if (detect_pattern::has_byte_string_repeated_block_at_any_offset(decryption_result,
+                                                                         oracle_pattern_len_in_blocks))
         {
-            auto plaintext = openpgp_cfb_decryption_sim(ciphertext, std::make_optional(std::span(session_key)));
-            rtc.potentially_write_run_time_file(std::span(plaintext),
-                                                std::format("random_decryption_plaintext-{}", iter));
-        }
-        rtc.potentially_write_run_time_file(decryption_result, std::format("random_decryption_result-{}", iter));
-        recovered_blocks = oracle_blocks_recovery_from_cfb_decryption_result(
-            decryption_result, oracle_blocks.size() / block_size, nb_leading_random_bytes, second_step_ct);
-        std::cout << "recovered blocks size = " << recovered_blocks.size() << std::endl;
-        if (recovered_blocks.size())
-        {
-            rtc.potentially_write_run_time_file(recovered_blocks, std::format("recovered_blocks-{}", iter));
+            rtc.potentially_write_run_time_file(pgp_msg, std::format("random_decryption_input-{}", iter));
+            // std::cout << "size of session key = " << session_key.size() << std::endl;
+            if (session_key.size() > 0)
+            {
+                auto plaintext = openpgp_cfb_decryption_sim(ciphertext, std::make_optional(std::span(session_key)));
+                rtc.potentially_write_run_time_file(std::span(plaintext),
+                                                    std::format("random_decryption_plaintext-{}", iter));
+            }
+            rtc.potentially_write_run_time_file(decryption_result, std::format("random_decryption_result-{}", iter));
+            recovered_blocks = oracle_blocks_recovery_from_cfb_decryption_result(
+                decryption_result, oracle_pattern_len_in_blocks, nb_leading_random_bytes, second_step_ct);
+            std::cout << "recovered blocks size = " << recovered_blocks.size() << std::endl;
+            if (recovered_blocks.size())
+            {
+                rtc.potentially_write_run_time_file(recovered_blocks, std::format("recovered_blocks-{}", iter));
+            }
         }
     }
     return cfb_decr_oracle_result_t(
@@ -213,7 +248,7 @@ cfb_decr_oracle_result_t cfb_opgp_decr_oracle(run_time_ctrl_t rtc,
 
 
 std::vector<uint8_t> oracle_blocks_recovery_from_cfb_decryption_result(std::span<uint8_t> cfb_decryption_result,
-                                                                       uint32_t nb_blocks_in_single_query_sequence,
+                                                                       uint32_t pattern_length_in_blocks,
                                                                        uint32_t nb_leading_random_bytes_len,
                                                                        std::span<uint8_t> second_step_ct)
 {
@@ -235,8 +270,7 @@ std::vector<uint8_t> oracle_blocks_recovery_from_cfb_decryption_result(std::span
             cfb_decryption_result, second_step_ct, offset_in_ct);
         // now we have a candidate result for the block decryption. We verify now whether it contains at least one
         // repetion of the length of the query pattern.
-        auto repeatet_pattern =
-            determine_repeated_pattern_of_blocks(candidate_ecb_blocks, nb_blocks_in_single_query_sequence);
+        auto repeatet_pattern = determine_repeated_pattern_of_blocks(candidate_ecb_blocks, pattern_length_in_blocks);
         if (repeatet_pattern.size() > 0)
         {
             return repeatet_pattern;
