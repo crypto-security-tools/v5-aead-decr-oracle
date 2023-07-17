@@ -124,12 +124,12 @@ bool test_detect_pattern()
 
     if(!detect_pattern::has_byte_string_repeated_block_at_any_offset(std::span(with_rep_block), 1))
     {
-        std::cerr << "error in pattern detect\n";
+        std::cerr << "error in pattern detect 1\n";
         return false;
     }
     if(detect_pattern::has_byte_string_repeated_block_at_any_offset(std::span(without_rep_block), 1))
     {
-        std::cerr << "error in pattern detect\n";
+        std::cerr << "error in pattern detect 2\n";
         return false;
     }
     return true;

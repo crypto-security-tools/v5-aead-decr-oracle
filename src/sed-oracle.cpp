@@ -11,7 +11,7 @@
 #include "util.h"
 #include "opgp_cfb_decr_fun_simulation.h"
 #include "detect_pattern.h"
-
+#include "except.h"
 
 // Note: boost.process seems badly maintained: https://github.com/bitcoin/bitcoin/issues/24907
 //
@@ -19,6 +19,28 @@ namespace sp = subprocess;
 
 namespace
 {
+
+
+uint32_t determine_number_of_repeated_blocks(std::span<const uint8_t> cfb_plaintext, uint32_t offset)
+{
+    unsigned block_size = 16;
+    if (offset + 2 * block_size > cfb_plaintext.size())
+    {
+        throw Exception("cfb_plaintext too small");
+    }
+    std::span<const uint8_t> sought_block(cfb_plaintext.begin() + offset, cfb_plaintext.begin() + offset + block_size);
+    uint32_t cnt = 0;
+    for (uint32_t i = offset + block_size; i + block_size < cfb_plaintext.size(); i += block_size)
+    {
+        std::span<const uint8_t> match_block(cfb_plaintext.begin() + i, cfb_plaintext.begin() + i + block_size);
+        if (!std::equal(sought_block.begin(), sought_block.end(), match_block.begin(), match_block.end()))
+        {
+            break;
+        }
+        cnt++;
+    }
+    return cnt;
+}
 
 /**
  * @brief Computes the ECB decryption result for a certain guess for the offset of the CFB decryption result returned by
@@ -32,7 +54,7 @@ namespace
  * @return The ECB encryption of the blocks that were CFB-decrypted
  */
 std::vector<uint8_t> recover_ecb_encrypted_blocks_from_cfb_decryption_for_offset(
-    std::span<uint8_t> cfb_decryption_result, std::span<uint8_t> second_step_ct, uint32_t offset_in_ct)
+    std::span<uint8_t> cfb_decryption_result, std::span<const uint8_t> second_step_ct, uint32_t offset_in_ct)
 {
     const unsigned block_size = 16;
     std::vector<uint8_t> ecb_encrypted_blocks;
@@ -57,6 +79,7 @@ std::vector<uint8_t> recover_ecb_encrypted_blocks_from_cfb_decryption_for_offset
     return ecb_encrypted_blocks;
 }
 
+#if 0
 /**
  * @brief process a candidate for the ECB decryption result starting at a block boundary. Try to find a repeated pattern
  * of blocks of the specified length.
@@ -95,6 +118,8 @@ std::vector<uint8_t> determine_repeated_pattern_of_blocks(std::span<const uint8_
     }
     return std::vector<uint8_t>();
 }
+
+#endif
 } // namespace
 
 std::vector<uint8_t> invoke_cfb_opgp_decr(openpgp_app_decr_params_t const& decr_params)
@@ -121,8 +146,10 @@ std::vector<uint8_t> invoke_cfb_opgp_decr(openpgp_app_decr_params_t const& decr_
     else if (std::holds_alternative<std::vector<uint8_t>>(decr_params.ct_filename_or_data))
     {
         //        throw Exception("stdin input to appication not available");
-        p            = std::unique_ptr<sp::Popen>(new sp::Popen(
-            {decr_params.application_path, "--batch", "--decrypt"}, sp::output {sp::PIPE}, sp::error {sp::PIPE}, sp::defer_spawn {true}));
+        p            = std::unique_ptr<sp::Popen>(new sp::Popen({decr_params.application_path, "--batch", "--decrypt"},
+                                                     sp::output {sp::PIPE},
+                                                     sp::error {sp::PIPE},
+                                                     sp::defer_spawn {true}));
         auto ct_data = std::get<std::vector<uint8_t>>(decr_params.ct_filename_or_data);
         for (size_t i = 0; i < ct_data.size(); i++)
         {
@@ -221,8 +248,8 @@ cfb_decr_oracle_result_t cfb_opgp_decr_oracle(run_time_ctrl_t rtc,
     if (decryption_result.size() > 0)
     {
         // check for block repetition pattern in CFB plaintext
-        if (detect_pattern::has_byte_string_repeated_block_at_any_offset(decryption_result,
-                                                                         oracle_pattern_len_in_blocks))
+        if (detect_pattern::rep_dect_result_t rep_patt = detect_pattern::has_byte_string_repeated_block_at_any_offset(
+                decryption_result, oracle_pattern_len_in_blocks))
         {
             rtc.potentially_write_run_time_file(pgp_msg, std::format("random_decryption_input-{}", iter));
             // std::cout << "size of session key = " << session_key.size() << std::endl;
@@ -233,13 +260,15 @@ cfb_decr_oracle_result_t cfb_opgp_decr_oracle(run_time_ctrl_t rtc,
                                                     std::format("random_decryption_plaintext-{}", iter));
             }
             rtc.potentially_write_run_time_file(decryption_result, std::format("random_decryption_result-{}", iter));
-            recovered_blocks = oracle_blocks_recovery_from_cfb_decryption_result(
+           
+            std::cout << "block recovery not implemented!!\n"; 
+            /*recovered_blocks = oracle_blocks_recovery_from_cfb_decryption_result(
                 decryption_result, oracle_pattern_len_in_blocks, nb_leading_random_bytes, second_step_ct);
             std::cout << "recovered blocks size = " << recovered_blocks.size() << std::endl;
             if (recovered_blocks.size())
             {
                 rtc.potentially_write_run_time_file(recovered_blocks, std::format("recovered_blocks-{}", iter));
-            }
+            }*/
         }
     }
     return cfb_decr_oracle_result_t(
@@ -247,11 +276,36 @@ cfb_decr_oracle_result_t cfb_opgp_decr_oracle(run_time_ctrl_t rtc,
 }
 
 
-std::vector<uint8_t> oracle_blocks_recovery_from_cfb_decryption_result(std::span<uint8_t> cfb_decryption_result,
-                                                                       uint32_t pattern_length_in_blocks,
-                                                                       uint32_t nb_leading_random_bytes_len,
-                                                                       std::span<uint8_t> second_step_ct)
+/* implement function to determine the correct pt / ct offsets for block recovery */ 
+void recover_ecb_decryption_for_single_block_rep_pattern(std::span<const uint8_t> cfb_decryption_result,
+                                                                       uint32_t offset_of_rep_in_decr_res,
+                                                                      std::span<uint8_t> ct_oracle_block)
 {
+ // determine the repeate count
+ uint32_t nb_rep_blocks = determine_number_of_repeated_blocks(cfb_decryption_result, offset_of_rep_in_decr_res);
+
+ // use only if at least 3 blocks. then decrypt the 2nd and the 3rd block and check if they are equal
+} 
+
+
+/*
+ * This function receives the exact information for a recovery attempt:
+ * - decryption result
+ * - ciphertext blocks matching the decryption result, i.e. ciphertext starting
+ */
+std::vector<uint8_t> oracle_blocks_recovery_from_cfb_decryption_result(std::span<const uint8_t> cfb_decryption_result,
+                                                                       uint32_t offset_of_rep_in_decr_res,
+                                                                       std::span<const uint8_t> ct_blocks
+                                                                       // uint32_t pattern_length_in_blocks
+                                                                       // uint32_t nb_leading_random_bytes_len
+                                                                       // std::span<uint8_t> second_step_ct
+)
+{
+
+    throw Exception("not implemented");
+    return std::vector<uint8_t>();
+
+#if 0
     /**
      * nb_query_blocks_repetitions is the maximal number of equal blocks that we can expect to find. Due to arbitrary
      * offsets into the ciphertext and cutoffs at the end, the actual must be expected to be less.
@@ -277,4 +331,5 @@ std::vector<uint8_t> oracle_blocks_recovery_from_cfb_decryption_result(std::span
         }
     }
     return std::vector<uint8_t>();
+#endif
 }
