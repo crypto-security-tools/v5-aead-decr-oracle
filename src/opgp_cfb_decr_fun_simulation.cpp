@@ -3,6 +3,7 @@
 #include "bit_string.h"
 #include "except.h"
 #include "util.h"
+#include "cipher_block.h"
 #include <span>
 
 
@@ -16,10 +17,11 @@ using namespace Botan;
 /**
  * AES CFB decryption as specified for OpenPGP (2-step encryption)
  */
-std::vector<uint8_t> openpgp_cfb_decryption_sim (std::span<const uint8_t> ciphertext, std::optional<std::span<const uint8_t>> key_opt)
+std::vector<uint8_t> openpgp_cfb_decryption_sim(std::span<const uint8_t> ciphertext,
+                                                std::optional<std::span<const uint8_t>> key_opt)
 {
     const unsigned block_size = 16;
-    if(!key_opt.has_value())
+    if (!key_opt.has_value())
     {
         throw ::Exception("key not set for function openpgp_cfb_decryption()");
     }
@@ -32,16 +34,39 @@ std::vector<uint8_t> openpgp_cfb_decryption_sim (std::span<const uint8_t> cipher
     first_ct.resize(block_size + 2);
     std::vector<uint8_t> second_ct(&ciphertext[block_size + 2], &ciphertext[ciphertext.size() - 1]);
     auto dec = Botan::Cipher_Mode::create(cipher_spec, Botan::Cipher_Dir::Decryption);
+
+    if (dec == nullptr)
+    {
+        throw ::Exception("failed to set up Botan CFB decryption");
+    }
     dec->set_key(key);
     dec->start(zero_iv);
-    //std::cout << "decrypting ciphertext 1 of 2..." << std::endl;
+    // std::cout << "decrypting ciphertext 1 of 2..." << std::endl;
     dec->finish(first_ct);
 
-    std::vector<uint8_t> iv_for_2nd_ct(&first_ct[2], &first_ct[2+block_size]);
+    std::vector<uint8_t> iv_for_2nd_ct(&first_ct[2], &first_ct[2 + block_size]);
     dec->set_key(key);
     dec->start(iv_for_2nd_ct);
-    //std::cout << "decrypting ciphertext 2 of 2..." << std::endl;
+    // std::cout << "decrypting ciphertext 2 of 2..." << std::endl;
     dec->finish(second_ct);
     return second_ct;
+}
 
+cipher_block_t<AES_BLOCK_SIZE> ecb_encrypt_block(std::span<const uint8_t> key_span,
+                                                 cipher_block_t<AES_BLOCK_SIZE>& input)
+{
+
+    std::string cipher_spec = botan_aes_ecb_cipher_spec_from_key_byte_len(key_span.size());
+
+    auto enc = Botan::Cipher_Mode::create(cipher_spec, Botan::Cipher_Dir::Encryption);
+    if (enc == nullptr)
+    {
+        throw ::Exception("failed to set up Botan ECB encryption");
+    }
+
+    enc->set_key(key_span);
+    enc->start();
+    std::vector<uint8_t> input_as_vec = input.to_uint8_vec();
+    enc->finish(input_as_vec);
+    return cipher_block_t<AES_BLOCK_SIZE>(input_as_vec);
 }

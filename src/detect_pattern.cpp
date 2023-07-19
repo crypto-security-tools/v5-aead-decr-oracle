@@ -18,26 +18,64 @@ namespace detect_pattern {
  *
  * @return
  */
-rep_dect_result_t find_block(std::span<const uint8_t> cfb_plaintext, uint32_t offset,
+rep_dect_result_t find_block(std::span<const uint8_t> cfb_plaintext, uint32_t const offset,
                 uint32_t pattern_length_in_blocks,
                 std::span<const uint8_t> sought_block)
 {
     const unsigned block_size = 16;
+    const uint32_t pattern_length_in_bytes = block_size * pattern_length_in_blocks;
 
-    for (uint32_t i = offset; i + block_size < cfb_plaintext.size(); i = i + block_size * pattern_length_in_blocks)
+    for (uint32_t i = offset + pattern_length_in_bytes; i + pattern_length_in_bytes < cfb_plaintext.size(); i = i + pattern_length_in_bytes)
     {
-        std::span<const uint8_t> candidate_for_match(&cfb_plaintext[i], &cfb_plaintext[i + block_size]);
+        std::span<const uint8_t> candidate_for_match(&cfb_plaintext[i], &cfb_plaintext[i + pattern_length_in_bytes]);
         //std::cout << std::format("    checking for sought_block at offset = {}, ", i);
         //std::cout << std::format("checking match candidate block = {}\n", Botan::hex_encode(candidate_for_match)); 
         if (std::equal(
                 candidate_for_match.begin(), candidate_for_match.end(), sought_block.begin(), sought_block.end()))
         {
-            return rep_dect_result_t::create_as_true(i);
+            std::cout << std::format("found sought block {} at offset {} again at offset {}\n", Botan::hex_encode(sought_block), offset, i);
+            return rep_dect_result_t::create_as_true(offset);
         }
     }
     return rep_dect_result_t::create_as_false();
 }
 
+
+}
+
+rep_dect_result_t has_byte_string_repeated_block_at_any_offset(std::span<const uint8_t> cfb_plaintext,
+                                                  uint32_t pattern_length_in_blocks)
+{
+
+    // approach: since we are looking for repeated blocks while not knowing the offset of the block boundary, we iterate
+    // through all possible byte offsets
+    const unsigned block_size = 16;
+    const uint32_t pattern_length_in_bytes = block_size * pattern_length_in_blocks;
+    if (cfb_plaintext.size() < 2 * block_size)
+    {
+        return rep_dect_result_t::create_as_false();
+    }
+    for (unsigned offset = 0; offset < cfb_plaintext.size() - 2 * block_size; offset++)
+    {
+        
+        std::span<const uint8_t> sought_block(&cfb_plaintext[offset], &cfb_plaintext[offset + pattern_length_in_bytes]);
+
+        if(rep_dect_result_t res = find_block(cfb_plaintext, offset, pattern_length_in_blocks, sought_block))
+        {
+            return res;
+        }
+
+        //std::cout << std::format("checking intra-block offset = {}\n", offset);
+        // iterate through all the possible starting blocks
+        /*if(rep_dect_result_t res = has_byte_string_repeated_block_at_certain_offset(cfb_plaintext, pattern_length_in_blocks, offset))
+        {
+            return res;
+        }*/
+    }
+    return rep_dect_result_t::create_as_false();
+}
+
+#if 0
 rep_dect_result_t has_byte_string_repeated_block_at_certain_offset(std::span<const uint8_t> cfb_plaintext,
                                                       uint32_t pattern_length_in_blocks,
                                                       uint32_t offset)
@@ -59,29 +97,5 @@ rep_dect_result_t has_byte_string_repeated_block_at_certain_offset(std::span<con
     }
     return rep_dect_result_t::create_as_false();
 }
-
-}
-
-rep_dect_result_t has_byte_string_repeated_block_at_any_offset(std::span<const uint8_t> cfb_plaintext,
-                                                  uint32_t pattern_length_in_blocks)
-{
-    // approach: since we are looking for repeated blocks while not knowing the offset of the block boundary, we iterate
-    // through the block size different possible offsets and look for repeated blocks there
-    const unsigned block_size = 16;
-    if (cfb_plaintext.size() < 2 * block_size)
-    {
-        return rep_dect_result_t::create_as_false();
-    }
-    for (unsigned offset = 0; offset < block_size; offset++)
-    {
-        //std::cout << std::format("checking intra-block offset = {}\n", offset);
-        // iterate through all the possible starting blocks
-        if(rep_dect_result_t res = has_byte_string_repeated_block_at_certain_offset(cfb_plaintext, pattern_length_in_blocks, offset))
-        {
-            return res;
-        }
-    }
-    return rep_dect_result_t::create_as_false();
-}
-
+#endif
 }

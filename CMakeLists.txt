@@ -4,6 +4,9 @@ project (v5-aead-decr-oracle)
 
 set(CMAKE_CXX_STANDARD 20)
 
+
+SET(COMPILE_FLAGS "-pthread -Wall -Werror -Wno-nonnull -Wno-unused-variable")
+
 set(BOTAN_INCLUDE_DIR "" CACHE STRING "Botan include directory")
 include_directories(${BOTAN_INCLUDE_DIR})
 

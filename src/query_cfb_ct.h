@@ -8,7 +8,6 @@
 #include "cipher_block.h"
 #include <iostream>
 
-#define AES_BLOCK_SIZE 16
 
 template <uint8_t BLOCK_SIZE> class query_cfb_ct_t
 {
@@ -20,6 +19,20 @@ template <uint8_t BLOCK_SIZE> class query_cfb_ct_t
 
     std::vector<uint8_t> serialize() const;
 
+    uint32_t offset_of_first_oracle_block() const
+    {
+        return BLOCK_SIZE + 2 + m_leading_random_blocks.byte_length();
+    }
+
+   cipher_block_vec_t<BLOCK_SIZE> const& oracle_blocks_single_pattern() const
+   {
+     return m_oracle_blocks_single_pattern;
+   }
+   cipher_block_vec_t<BLOCK_SIZE> const& leading_random_blocks() const
+   {
+       return m_leading_random_blocks;
+   }
+
     inline uint32_t oracle_single_pattern_block_count() const
     {
         return m_oracle_blocks_single_pattern.size();
@@ -30,8 +43,9 @@ template <uint8_t BLOCK_SIZE> class query_cfb_ct_t
     query_cfb_ct_t();
     std::vector<uint8_t> m_first_step_ct;
     cipher_block_vec_t<BLOCK_SIZE> m_oracle_blocks;
-    std::vector<cipher_block_t<BLOCK_SIZE>> m_oracle_blocks_single_pattern;
-    std::vector<cipher_block_t<BLOCK_SIZE>> m_leading_random_blocks;
+    cipher_block_vec_t<BLOCK_SIZE>  m_oracle_blocks_single_pattern;
+    //std::vector<cipher_block_t<BLOCK_SIZE>> m_oracle_blocks_single_pattern;
+    cipher_block_vec_t<BLOCK_SIZE> m_leading_random_blocks;
 };
 
 // =========== member functions =================
@@ -41,11 +55,11 @@ template <uint8_t BLOCK_SIZE> std::vector<uint8_t> query_cfb_ct_t<BLOCK_SIZE>::s
 {
 
     std::vector<uint8_t> result = m_first_step_ct;
-    std::cout << std::format("serialize: 1st-step-ct: {}\n", Botan::hex_encode(result));
+    //std::cout << std::format("serialize: 1st-step-ct: {}\n", Botan::hex_encode(result));
     cipher_block::append_cb_vec_to_uint8_vec(m_leading_random_blocks, result);
-    std::cout << std::format("serialize: + leading random: {}\n", Botan::hex_encode(result));
+    //std::cout << std::format("serialize: + leading random: {}\n", Botan::hex_encode(result));
     cipher_block::append_cb_vec_to_uint8_vec(m_oracle_blocks, result);
-    std::cout << std::format("serialize: + oracle blocks: {}\n", Botan::hex_encode(result));
+    //std::cout << std::format("serialize: + oracle blocks: {}\n", Botan::hex_encode(result));
     return result;
 }
 
@@ -78,12 +92,10 @@ query_cfb_ct_t<BLOCK_SIZE> query_cfb_ct_t<BLOCK_SIZE>::create_from_oracle_blocks
         x.randomize(rng);
     }
     auto& rob = result.m_oracle_blocks;
-    std::cout << std::format("creating {} oracle data repetitions\n", nb_oracle_blocks_repetitions);
     for (uint32_t i = 0; i < nb_oracle_blocks_repetitions; i++)
     {
         rob.insert(rob.end(), oracle_block_seq.begin(), oracle_block_seq.end());
     }
-    std::cout << "size of oracle area = " << rob.byte_length() << std::endl;
     return result;
 }
 

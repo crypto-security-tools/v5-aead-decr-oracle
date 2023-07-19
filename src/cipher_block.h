@@ -10,9 +10,36 @@
 #include <botan/hex.h>
 #include "except.h"
 
+
+#define AES_BLOCK_SIZE 16
+
 template <uint8_t BLOCK_SIZE> class cipher_block_t : public std::array<uint8_t, BLOCK_SIZE>
 {
   public:
+    inline cipher_block_t<BLOCK_SIZE>()
+    {
+        std::memset(&this[0], 0, BLOCK_SIZE);
+    }
+
+    inline cipher_block_t<BLOCK_SIZE>(std::vector<uint8_t> const& rhs)
+    {
+        if (rhs.size() != BLOCK_SIZE)
+        {
+            throw Exception("trying to assign vector<uint8_t> of invalid length to cipher_block_t");
+        }
+        std::memcpy(&this[0], &rhs[0], BLOCK_SIZE);
+    }
+
+
+    inline cipher_block_t<BLOCK_SIZE>(std::span<const uint8_t> rhs)
+    {
+        if (rhs.size() != BLOCK_SIZE)
+        {
+            throw Exception("trying to assign span<uint8_t> of invalid length to cipher_block_t");
+        }
+        std::memcpy(&this[0], &rhs[0], BLOCK_SIZE);
+    }
+
     inline cipher_block_t<BLOCK_SIZE>& operator^=(cipher_block_t<BLOCK_SIZE> const& other)
     {
         for (unsigned i = 0; i < BLOCK_SIZE; i++)
@@ -26,27 +53,70 @@ template <uint8_t BLOCK_SIZE> class cipher_block_t : public std::array<uint8_t, 
 
         rng.randomize(&(*this)[0], BLOCK_SIZE);
     }
+    inline cipher_block_t& operator=(std::vector<uint8_t> const& rhs)
+    {
+        if (rhs.size() != BLOCK_SIZE)
+        {
+            throw Exception("trying to assign vector<uint8_t> of invalid length to cipher_block_t");
+        }
+        std::memcpy(&this[0], &rhs[0], BLOCK_SIZE);
+        return *this;
+    }
+    inline std::vector<uint8_t> to_uint8_vec() const
+    {
+        return std::vector<uint8_t>(this->begin(), this->end());
+    }
+
+    inline std::string hex() const
+    {
+        return Botan::hex_encode(this->data(), this->size());
+    }
 
 
   private:
 };
 
-template<uint8_t BLOCK_SIZE> class cipher_block_vec_t : public std::vector<cipher_block_t<BLOCK_SIZE>>
+template <uint8_t BLOCK_SIZE> class cipher_block_vec_t : public std::vector<cipher_block_t<BLOCK_SIZE>>
 {
-    public:
-       inline cipher_block_vec_t()
-           :std::vector<cipher_block_t<BLOCK_SIZE>>()
-       {
-       }
-       inline cipher_block_vec_t(std::vector<cipher_block_t<BLOCK_SIZE>> const& vec)
-          : std::vector<cipher_block_t<BLOCK_SIZE>>(vec)
-       {
-       }
+  public:
+    inline cipher_block_vec_t() : std::vector<cipher_block_t<BLOCK_SIZE>>()
+    {
+    }
+    inline cipher_block_vec_t(std::vector<cipher_block_t<BLOCK_SIZE>> const& vec)
+        : std::vector<cipher_block_t<BLOCK_SIZE>>(vec)
+    {
+    }
+    inline cipher_block_vec_t(std::span<const uint8_t> vec) : std::vector<cipher_block_t<BLOCK_SIZE>>()
+    {
+        if (vec.size() % BLOCK_SIZE)
+        {
+            throw Exception("trying to create cipher_block_vec_t from data which is not a multiple of the block size");
+        }
+        for (size_t i = 0; i < vec.size(); i += BLOCK_SIZE)
+        {
+            this->push_back(cipher_block_t<BLOCK_SIZE>(std::span(vec.begin() + i, vec.begin() + i + BLOCK_SIZE)));
+        }
+    }
 
-       inline size_t byte_length() const
-       {
-         return this->size() * BLOCK_SIZE;
-       }
+    inline std::string hex() const
+    {
+        std::string result;
+        for (auto x : *this)
+
+        {
+            if (result.size())
+            {
+                result += " ";
+            }
+            result += x.hex();
+        } 
+        return result;
+    }
+
+    inline size_t byte_length() const
+    {
+        return this->size() * BLOCK_SIZE;
+    }
 };
 
 template <uint8_t BLOCK_SIZE>
