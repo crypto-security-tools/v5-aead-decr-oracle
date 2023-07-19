@@ -38,8 +38,8 @@ cfb_decr_oracle_result_t cfb_opgp_decr_oracle(run_time_ctrl_t rtc,
                                               openpgp_app_decr_params_t const& decr_params,
                                               size_t nb_leading_random_bytes,
                                               std::span<const uint8_t> pkesk,
-                                              std::span<const uint8_t> oracle_blocks,
-                                              uint32_t oracle_pattern_len_in_blocks,
+                                              std::span<const uint8_t> oracle_blocks_single_pattern,
+                                              uint32_t oracle_pattern_repetitions,
                                               std::filesystem::path const& msg_file_path,
                                               std::span<const uint8_t> session_key // may have size 0
 );

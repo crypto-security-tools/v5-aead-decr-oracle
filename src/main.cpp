@@ -1,7 +1,7 @@
 #include <iostream>
 #include <format>
 #include <filesystem>
-#include "blockcipher_blocks.h"
+#include "cipher_block.h"
 #include "args.hxx"
 #include "self-test.h"
 #include "except.h"
@@ -233,11 +233,11 @@ void check_pattern_rep_in_cfb_plaintext_cmd(args::Subparser& parser)
 }
 void decryption_of_random_blocks_cmd(args::Subparser& parser)
 {
-    args::ValueFlag<uint32_t> nb_leading_random_blocks_arg(
+    args::ValueFlag<uint32_t> nb_leading_random_bytes_arg(
         parser,
-        "BLOCK-COUNT",
-        "Number of leading random blocks at the start of the 2nd-step CFB ciphertext.",
-        {"l", "nb-leading-random-blocks"},
+        "BYTE-COUNT",
+        "Number of leading random bytes at the start of the 2nd-step CFB ciphertext. Will be rounded up to a multiple of the block size if not a multiple of the block size.",
+        {"l", "nb-leading-random-bytes"},
         args::Options::Required | args::Options::Single);
 
     args::ValueFlag<std::string> reused_pkesk_arg(
@@ -304,7 +304,7 @@ void decryption_of_random_blocks_cmd(args::Subparser& parser)
     size_t iterations = args::get(iterations_arg);
 
     uint32_t query_data_repetitions         = args::get(query_data_repetition_arg);
-    uint32_t nb_leading_random_blocks       = args::get(nb_leading_random_blocks_arg);
+    uint32_t nb_leading_random_bytes = args::get(nb_leading_random_bytes_arg);
     std::string reused_pkesk_path           = args::get(reused_pkesk_arg);
     std::filesystem::path tmp_msg_file_dir  = args::get(tmp_dir_arg);
     std::filesystem::path tmp_msg_file_path = tmp_msg_file_dir / "opgp_att_msg.bin";
@@ -318,20 +318,15 @@ void decryption_of_random_blocks_cmd(args::Subparser& parser)
             "must provide --query-repeat-count with a positive (non-zero) value if a query data file is specified");
     }
 
-    auto query_data_base = read_binary_file(file_with_query_data_path);
-    if (query_data_base.size() % block_size)
+    auto query_data = read_binary_file(file_with_query_data_path);
+    if (query_data.size() % block_size)
     {
         throw Exception("query data file must have a size of a multiple of 16 bytes");
     }
-    uint32_t nb_blocks_in_query_data_pattern = query_data_base.size();
-    if (query_data_base.size() * query_data_repetitions > 100 * 1000 * 1000)
+    uint32_t nb_blocks_in_query_data_pattern = query_data.size();
+    if (query_data.size() * query_data_repetitions > 100 * 1000 * 1000)
     {
         throw Exception("trying to create query data of more than 100 MB, this is prohibited");
-    }
-    std::vector<uint8_t> query_blocks;
-    for (uint32_t i = 0; i < query_data_repetitions; i++)
-    {
-        query_blocks.insert(query_blocks.end(), query_data_base.begin(), query_data_base.end());
     }
 
 
@@ -350,10 +345,10 @@ void decryption_of_random_blocks_cmd(args::Subparser& parser)
                                                     .app_type         = openpgp_app_e::gnupg,
                                                     .application_path = "gpg",
                                                 },
-                                                nb_leading_random_blocks,
+                                                nb_leading_random_bytes,
                                                 std::span(pkesk_bytes),
-                                                query_blocks,
-                                                nb_blocks_in_query_data_pattern,
+                                                query_data,
+                                                query_data_repetitions,
                                                 tmp_msg_file_path,
                                                 session_key);
 
