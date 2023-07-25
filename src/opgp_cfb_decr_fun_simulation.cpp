@@ -9,6 +9,7 @@
 
 #include <botan/auto_rng.h>
 #include <botan/cipher_mode.h>
+#include <botan/block_cipher.h>
 #include <botan/hex.h>
 #include <botan/rng.h>
 #include <iostream>
@@ -57,16 +58,14 @@ cipher_block_t<AES_BLOCK_SIZE> ecb_encrypt_block(std::span<const uint8_t> key_sp
 {
 
     std::string cipher_spec = botan_aes_ecb_cipher_spec_from_key_byte_len(key_span.size());
-
-    auto enc = Botan::Cipher_Mode::create(cipher_spec, Botan::Cipher_Dir::Encryption);
+    
+    auto enc = Botan::BlockCipher::create(cipher_spec);
     if (enc == nullptr)
     {
         throw ::Exception("failed to set up Botan ECB encryption");
     }
-
     enc->set_key(key_span);
-    enc->start();
     std::vector<uint8_t> input_as_vec = input.to_uint8_vec();
-    enc->finish(input_as_vec);
+    enc->encrypt(input_as_vec);
     return cipher_block_t<AES_BLOCK_SIZE>(input_as_vec);
 }

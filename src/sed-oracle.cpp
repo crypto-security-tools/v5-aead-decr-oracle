@@ -166,7 +166,7 @@ std::optional<cipher_block_t<AES_BLOCK_SIZE>> recover_ecb_encryption_for_single_
         throw Exception("case of oracle pattern block count != 1 not implemented");
     }
     cipher_block_t ecb_encrypted_0 = rep_pt_blocks[0] ^ ct_oracle_blocks[0];
-    cipher_block_t ecb_encrypted_1 = rep_pt_blocks[1] ^ ct_oracle_blocks[0];
+    cipher_block_t ecb_encrypted_1 = rep_pt_blocks[1] ^ ct_oracle_blocks[0]; // necessarily the same calculation as above
 
     if(ecb_encrypted_0 != ecb_encrypted_1)
     {
@@ -181,7 +181,7 @@ std::optional<cipher_block_t<AES_BLOCK_SIZE>> recover_ecb_encryption_for_single_
 
     if(session_key.size() > 0)
     {
-       auto actual_ecb_encrypted = ecb_encrypt_block(session_key, rep_pt_blocks[0]);
+       auto actual_ecb_encrypted = ecb_encrypt_block(session_key, ct_oracle_blocks[0]);
        if(actual_ecb_encrypted != ecb_encrypted_0)
        {
             std::cerr << "verification of ECB block encryption with actual session key failed\n";
