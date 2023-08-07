@@ -28,7 +28,7 @@ template <uint8_t BLOCK_SIZE> class query_cfb_ct_t
    {
      return m_oracle_blocks_single_pattern;
    }
-   cipher_block_vec_t<BLOCK_SIZE> const& leading_random_blocks() const
+   cipher_block_vec_t<BLOCK_SIZE> const& leading_blocks() const
    {
        return m_leading_random_blocks;
    }

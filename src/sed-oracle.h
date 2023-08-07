@@ -4,11 +4,13 @@
 #include <vector>
 #include "except.h"
 #include "util.h"
+#include "cipher_block.h"
 #include <format>
 #include <span>
 #include <cstdint>
 #include <variant>
 #include <filesystem>
+#include <botan/hex.h>
 
 enum class openpgp_app_e
 {
@@ -16,10 +18,35 @@ enum class openpgp_app_e
     rnp
 };
 
+struct vector_cfb_ciphertext_t {
+    
+    /**
+     * The constant value of the leading blocks.
+     */
+    //std::vector<uint8_t> leading_blocks;
+    cipher_block_vec_t<AES_BLOCK_SIZE> leading_blocks;
+
+    /**
+     * The number of oracle blocks that can be appended after the leading blocks that will be fully decrypted.
+     */
+    uint32_t nb_oracle_blocks;
+
+    /**
+     * The offset of the decryption result of the oracle blocks into the decryption result.
+     */
+    uint32_t decryption_result_offset;
+
+    inline std::string to_string_brief() const
+    {
+        return std::string (std::format("leading blocks block count: {}, oracle block capacity: {}, offset into decryption result: {}", leading_blocks.size(), nb_oracle_blocks, decryption_result_offset));
+    }
+};
+
 struct cfb_decr_oracle_result_t
 {
     std::vector<uint8_t> decryption_result;
     std::vector<uint8_t> recovered_encrypted_blocks;
+    vector_cfb_ciphertext_t vector_ciphertext;
 };
 
 struct openpgp_app_decr_params_t

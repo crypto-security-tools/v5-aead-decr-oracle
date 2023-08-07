@@ -23,7 +23,7 @@ include_directories(${CPP_SUBPROCESS_INCLUDE_DIR})
 
 
 
-SET(EAX_DECR_BINARY eax_decr)
+SET(EAX_DECR_BINARY v5-aead-attack)
 
 FILE(GLOB_RECURSE SOURCES src/*.cpp)
 

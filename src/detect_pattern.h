@@ -12,21 +12,32 @@ struct rep_dect_result_t
 {
     inline static rep_dect_result_t create_as_false()
     {
-        return rep_dect_result_t({.have_repetition = false, .offset = 0});
+        return rep_dect_result_t({.m_nb_rep_blocks = 0, .m_offset = 0});
     }
 
-    inline static rep_dect_result_t create_as_true(uint32_t offset)
+    inline static rep_dect_result_t create_as_true(uint32_t offset, uint32_t nb_rep_blocks)
     {
-        return rep_dect_result_t({.have_repetition = true, .offset = offset});
+        return rep_dect_result_t({.m_nb_rep_blocks= nb_rep_blocks, .m_offset = offset});
     }
+    
+    inline uint32_t nb_repeated_blocks() const
+    {
+        return m_nb_rep_blocks;
+    }
+
+    inline uint32_t offset() const
+    {
+        return m_offset;
+    }
+
     explicit operator bool() const
     {
-        return have_repetition;
+        return m_nb_rep_blocks > 0;
     }
 
 
-    bool have_repetition;
-    uint32_t offset;
+    uint32_t m_nb_rep_blocks;
+    uint32_t m_offset;
 };
 
 /**
