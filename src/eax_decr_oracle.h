@@ -3,6 +3,7 @@
 
 #include "bit_string.h"
 #include "opgp_cfb_decr_fun.h"
+#include "cipher_block.h"
 #include <optional>
 
 class eax_decryption_oracle_t

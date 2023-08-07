@@ -11,3 +11,7 @@ eax_decryption_oracle_t::eax_decryption_oracle_t(bit_string_t const& iv, std::si
 {
 
 }
+
+//cipher_block_t<AES_BLOCK_SIZE> compute_initial_counter_block(cipher_block_t<AES_BLOCK_SIZE> const& encrypted_zero_block, cipher_block_t<AES_BLOCK_SIZE> const& iv, size_t chunk_idx)
+
+
