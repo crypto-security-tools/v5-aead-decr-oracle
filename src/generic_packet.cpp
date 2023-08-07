@@ -2,6 +2,7 @@
 #include "generic_packet.h"
 #include "packet.h"
 #include "except.h"
+#include "aead_packet.h"
 #include <format>
 #include <iostream>
 
@@ -17,9 +18,6 @@ void ensure_min_rem_octets(unsigned nb_required_octets, std::deque<uint8_t> cons
 }
 } // namespace
 
-// use std::dequeue
-// separate out length parsing (for indet. len headers)
-// each parsing function removes consumed data from the beginning.
 
 static std::string read_length_and_consume_content(uint8_t real_packet_tag,
                                                    packet::header_format_e format,
@@ -30,13 +28,13 @@ static std::string read_length_and_consume_content(uint8_t real_packet_tag,
     using namespace packet;
     std::string result;
 
-    
+
     uint64_t packet_length        = 0;
     uint8_t nb_len_octets         = 0;
     bool is_partial_length_header = in_partial_length;
     if (format == header_format_e::new_form)
-    {  
-        if(encoded.size() < 1)
+    {
+        if (encoded.size() < 1)
         {
             throw Exception("failed to find new format 1st length octet");
         }
@@ -75,7 +73,8 @@ static std::string read_length_and_consume_content(uint8_t real_packet_tag,
             nb_len_octets            = 1;
             // the subsequent headers only feature a lenth, not a tag octet: see stream_read_partial_chunk_len() in
             // RNP's stream-packet.cpp .
-            // "the last length header in this sequence must not be a partial one" (how can a partial header be the last one? it cannot specify a zero length!)
+            // "the last length header in this sequence must not be a partial one" (how can a partial header be the last
+            // one? it cannot specify a zero length!)
             bool partial_header_invalid = false;
             if (!(real_packet_tag == static_cast<uint8_t>(tag_e::literal_data) ||
                   real_packet_tag == static_cast<uint8_t>(tag_e::compressed_data) ||
@@ -93,7 +92,6 @@ static std::string read_length_and_consume_content(uint8_t real_packet_tag,
                 result += " ERROR: partial length header not applicable to packet type. ";
             }
             result += std::format(" partial header of length {}", packet_length);
-
         }
     }
     else // old format packet length
@@ -114,7 +112,8 @@ static std::string read_length_and_consume_content(uint8_t real_packet_tag,
             {
                 nb_len_octets = 2;
                 ensure_min_rem_octets(nb_len_octets, encoded);
-                std::cerr << "2 len octets = " << static_cast<unsigned>(encoded[0]) << ", " <<  static_cast<unsigned>(encoded[1]) << std::endl;
+                std::cerr << "2 len octets = " << static_cast<unsigned>(encoded[0]) << ", "
+                          << static_cast<unsigned>(encoded[1]) << std::endl;
                 packet_length = encoded[0] << 8 | encoded[1];
                 encoded.erase(encoded.begin(), encoded.begin() + 2);
                 break;
@@ -137,35 +136,41 @@ static std::string read_length_and_consume_content(uint8_t real_packet_tag,
         };
     }
     std::cerr << "packet length = " << packet_length << std::endl;
-    if(encoded.size() >= packet_length)
+    std::string packet_details;
+    if (encoded.size() >= packet_length)
     {
+        if(real_packet_tag == static_cast<uint8_t>(tag_e::aead))
+        {
+            aead_packet_t aead( std::vector<uint8_t>(encoded.begin(), encoded.begin() + packet_length));
+            packet_details +=  aead.to_string();
+        }
         encoded.erase(encoded.begin(), encoded.begin() + packet_length);
     }
     else
     {
         // need to abort here
-        throw Exception( " error: packet body length larger than remaining data");
+        throw Exception(" error: packet body length larger than remaining data");
         return result;
     }
     if (is_partial_length_header && packet_length > 0)
     {
         // the partial length portion of this partial header was consumed above already.
         // if we are in a partial length header, we recurse here to find the further portions
-        result += read_length_and_consume_content(real_packet_tag, format, encoded, legacy_len_spec, is_partial_length_header);
+        result += read_length_and_consume_content(
+            real_packet_tag, format, encoded, legacy_len_spec, is_partial_length_header);
         return result;
-        
     }
-    //encoded.erase(encoded.begin(), encoded.begin() + packet_length);
+    // encoded.erase(encoded.begin(), encoded.begin() + packet_length);
     result += std::format(" body length: {}", packet_length);
-
+    result += "\n" + packet_details;
     return result;
 }
 
 std::string get_packet_sequence(std::vector<uint8_t> const& encoded_vec)
 {
-    
+
     std::deque<uint8_t> encoded;
-   encoded.assign(encoded_vec.begin(), encoded_vec.end());
+    encoded.assign(encoded_vec.begin(), encoded_vec.end());
     std::string result;
     while (encoded.size())
     {

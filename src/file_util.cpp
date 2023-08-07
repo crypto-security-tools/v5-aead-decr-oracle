@@ -14,7 +14,7 @@ std::vector<uint8_t> read_binary_file(std::string const& filename)
     std::ifstream file(filename, ios::in | ios::binary | ios::ate);
     if (file.fail())
     {
-        throw Exception("could not open file for reading at " + filename);
+        throw file_exception_t("could not open file for reading at " + filename);
     }
 
     size = file.tellg();

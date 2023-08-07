@@ -48,6 +48,7 @@ class packet_t
   public:
     packet_t(packet::tag_e raw_tag, packet::header_format_e format = packet::header_format_e::new_form);
     std::vector<uint8_t> get_encoded() const;
+    packet_t(std::span<const uint8_t> encoded);
     ~packet_t();
 
   protected:

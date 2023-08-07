@@ -22,6 +22,17 @@ class Exception : public std::exception
     std::string m_msg;
 };
 
+class file_exception_t : public Exception 
+{
+  public:
+    file_exception_t(const char* prefix, const std::string& msg);
+    explicit file_exception_t(const std::string& msg);
+    virtual ~file_exception_t();
+
+  protected:
+    file_exception_t(const std::string& msg, const std::exception& e);
+
+};
 
 class cli_exception_t : public Exception 
 {

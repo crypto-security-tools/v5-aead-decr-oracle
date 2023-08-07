@@ -20,7 +20,7 @@ uint32_t count_blocks_in_repeatet_pattern_area(std::span<const uint8_t> sought_p
         throw Exception("count_blocks_in_repeatet_pattern_area(): sought_pattern is not a multiple of the block size");
     }
     uint32_t sought_pattern_block_size = sought_pattern.size() / AES_BLOCK_SIZE;
-    std::cout << std::format("count_blocks_in_repeatet_pattern_area(): sought_pattern_block_size = {}, decryption result part size = {}\n", sought_pattern_block_size, decr_res_from_repeat_pos.size());
+    //std::cout << std::format("count_blocks_in_repeatet_pattern_area(): sought_pattern_block_size = {}, decryption result part size = {}\n", sought_pattern_block_size, decr_res_from_repeat_pos.size());
     for (uint32_t i = 0; i + sought_pattern.size() <= decr_res_from_repeat_pos.size(); i += sought_pattern.size())
     {
         auto candidate_for_match =
@@ -29,8 +29,8 @@ uint32_t count_blocks_in_repeatet_pattern_area(std::span<const uint8_t> sought_p
                 candidate_for_match.begin(), candidate_for_match.end(), sought_pattern.begin(), sought_pattern.end()))
         {
             block_count += sought_pattern_block_size;
-            std::cout << std::format("count_blocks_in_repeatet_pattern_area(): counting this match, now {} block (i = {})\n",
-                                     block_count, i);
+            /*std::cout << std::format("count_blocks_in_repeatet_pattern_area(): counting this match, now {} block (i = {})\n",
+                                     block_count, i);*/
         }
         else
         {
@@ -67,8 +67,8 @@ rep_dect_result_t find_block(std::span<const uint8_t> cfb_plaintext,
         if (std::equal(
                 candidate_for_match.begin(), candidate_for_match.end(), sought_block.begin(), sought_block.end()))
         {
-            std::cout << std::format(
-                "find_block(): found sought block {} at offset {} again at offset {} (remaining cfb plaintext size = {}) \n", Botan::hex_encode(sought_block), offset, i, cfb_plaintext.size() - i);
+            /*std::cout << std::format(
+                "find_block(): found sought block {} at offset {} again at offset {} (remaining cfb plaintext size = {}) \n", Botan::hex_encode(sought_block), offset, i, cfb_plaintext.size() - i);*/
             // now count the number of repetitions
             uint32_t nb_rep_blocks = 1 + count_blocks_in_repeatet_pattern_area(
                 sought_block, std::span<const uint8_t>(&cfb_plaintext[i], &cfb_plaintext[cfb_plaintext.size()]));
@@ -76,7 +76,7 @@ rep_dect_result_t find_block(std::span<const uint8_t> cfb_plaintext,
             {
                 throw Exception("internal error: nb_rep_blocks must be at least 1");
             }
-            std::cout << std::format("nb_rep_blocks = {}\n", nb_rep_blocks); 
+            //std::cout << std::format("nb_rep_blocks = {}\n", nb_rep_blocks); 
             return rep_dect_result_t::create_as_true(offset, nb_rep_blocks);
         }
     }
