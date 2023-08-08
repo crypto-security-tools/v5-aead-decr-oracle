@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <span>
 #include <map>
+#include <memory>
 
 namespace packet
 {
@@ -51,6 +52,17 @@ class packet_t
     packet_t(std::span<const uint8_t> encoded);
     ~packet_t();
 
+    inline packet::tag_e raw_tag() const
+    {
+        return m_raw_tag;
+    }
+
+    inline uint32_t body_length() const
+    {
+        return packet_contents().size();
+    }
+    virtual std::string to_string() const = 0;
+
   protected:
     virtual std::vector<uint8_t> packet_contents() const = 0;
 
@@ -58,6 +70,20 @@ class packet_t
     std::vector<uint8_t> packet_header(size_t contents_length) const;
     packet::tag_e m_raw_tag;
     packet::header_format_e m_format;
+};
+
+class packet_sequence_t : public std::vector<std::unique_ptr<packet_t>>
+{
+  public:
+    inline std::string to_string() const
+    {
+        std::string result;
+        for (auto const& p : *this)
+        {
+            result += p->to_string() + "\n";
+        }
+        return result;
+    }
 };
 
 #endif /* _PACKET_H */

@@ -54,8 +54,8 @@ std::vector<uint8_t> encode_aead_chunks(std::vector<aead_chunk_t> const& chunks,
 
 } // namespace
 
-aead_packet_t::aead_packet_t(std::span<const uint8_t> encoded)
-    : packet_t(packet::tag_e::aead, packet::header_format_e::new_form)
+aead_packet_t::aead_packet_t(std::span<const uint8_t> encoded, packet::header_format_e hdr_fmt)
+    : packet_t(packet::tag_e::aead, hdr_fmt)
 {
     const uint32_t auth_tag_size = 16;
     using enum aead_type_e;
@@ -130,7 +130,7 @@ uint32_t aead_packet_t::plaintext_size() const
 std::string aead_packet_t::to_string() const
 {
     std::string result =
-        std::format("aead-type: {}\ncipher = {}\nchunk size: {}\n, overall plaintext size: {}\n#chunks: {}",
+        std::format("AEAD packet\n  aead-type: {}\n  cipher = {}\n  chunk size: {}\n  overall plaintext size: {}\n  #chunks: {}",
                     aead_type_to_string(m_aead_type),
                     cipher_to_string(m_cipher),
                     chunk_size(),

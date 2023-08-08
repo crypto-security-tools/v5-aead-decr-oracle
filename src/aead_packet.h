@@ -59,7 +59,7 @@ class aead_packet_t : public packet_t
      *
      * @param encoded_body the packet body contents (excluding the packet header)
      */
-    aead_packet_t(std::span<const uint8_t> encoded_body);
+    aead_packet_t(std::span<const uint8_t> encoded_body, packet::header_format_e hdr_fmt = packet::header_format_e::new_form);
 
     inline uint32_t chunk_size() const
     {
@@ -85,7 +85,7 @@ class aead_packet_t : public packet_t
     uint32_t plaintext_size() const;
 
 
-    std::string to_string() const;
+    std::string to_string() const override;
 
     std::vector<aead_chunk_t> aead_chunks() const;
 

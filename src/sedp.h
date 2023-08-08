@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <cstdint>
+#include <format>
 #include <span>
 #include "packet.h"
 
@@ -22,6 +23,11 @@ class symm_encr_data_packet_t : public packet_t
     static symm_encr_data_packet_t create_sedp_from_ciphertext(std::span<const uint8_t> ciphertext);
 
     std::vector<uint8_t> packet_contents() const override final;
+
+    inline std::string to_string() const override
+    {
+        return std::format("SED packet\n  ciphertext length: {}", m_ciphertext.size());
+    }
 
   private:
 

@@ -19,14 +19,31 @@ void ensure_min_rem_octets(unsigned nb_required_octets, std::deque<uint8_t> cons
 } // namespace
 
 
-static std::string read_length_and_consume_content(uint8_t real_packet_tag,
+class packet_parse_dump_visitor_t
+{
+    public:
+        packet_parse_dump_visitor_t(std::string & output_string)
+            :m_output_str(output_string)
+        {
+        }
+
+        inline void operator() (uint32_t packet_nb, std::string const& error_str, std::unique_ptr<packet_t> packet_up )
+        {
+            m_output_str += std::format("[{}] type = {}, body length = {}, errors = {} ", packet_nb, packet::tag2str_map.at(packet_up->raw_tag()), packet_up->body_length(), error_str);
+        }
+    private:
+        std::string m_output_str;
+};
+
+
+static std::vector<uint8_t> read_length_and_consume_content(uint8_t real_packet_tag,
                                                    packet::header_format_e format,
                                                    std::deque<uint8_t>& encoded,
                                                    uint8_t legacy_len_spec,
                                                    bool in_partial_length)
 {
     using namespace packet;
-    std::string result;
+    std::vector<uint8_t> result;
 
 
     uint64_t packet_length        = 0;
@@ -85,13 +102,13 @@ static std::string read_length_and_consume_content(uint8_t real_packet_tag,
                 partial_header_invalid = true;
             }
 
-            result += "|";
+            //result += "|";
             if (partial_header_invalid)
             {
                 // write the error but try to continue as this is not fatal
-                result += " ERROR: partial length header not applicable to packet type. ";
+                std::cerr << " ERROR: partial length header not applicable to packet type. " << std::endl;
             }
-            result += std::format(" partial header of length {}", packet_length);
+            std::cerr << std::format(" partial header of length {}\n", packet_length);
         }
     }
     else // old format packet length
@@ -136,14 +153,10 @@ static std::string read_length_and_consume_content(uint8_t real_packet_tag,
         };
     }
     std::cerr << "packet length = " << packet_length << std::endl;
-    std::string packet_details;
+    //std::string packet_details;
     if (encoded.size() >= packet_length)
     {
-        if(real_packet_tag == static_cast<uint8_t>(tag_e::aead))
-        {
-            aead_packet_t aead( std::vector<uint8_t>(encoded.begin(), encoded.begin() + packet_length));
-            packet_details +=  aead.to_string();
-        }
+        result.insert(result.end(), encoded.begin(), encoded.begin() + packet_length);
         encoded.erase(encoded.begin(), encoded.begin() + packet_length);
     }
     else
@@ -156,26 +169,27 @@ static std::string read_length_and_consume_content(uint8_t real_packet_tag,
     {
         // the partial length portion of this partial header was consumed above already.
         // if we are in a partial length header, we recurse here to find the further portions
-        result += read_length_and_consume_content(
+        auto new_part = read_length_and_consume_content(
             real_packet_tag, format, encoded, legacy_len_spec, is_partial_length_header);
+        result.insert(result.end(), new_part.begin(), new_part.end()); 
         return result;
     }
     // encoded.erase(encoded.begin(), encoded.begin() + packet_length);
-    result += std::format(" body length: {}", packet_length);
-    result += "\n" + packet_details;
+    //result += std::format(" body length: {}", packet_length);
+    //result += "\n" + packet_details;
     return result;
 }
 
-std::string get_packet_sequence(std::vector<uint8_t> const& encoded_vec)
+packet_sequence_t get_packet_sequence(std::vector<uint8_t> const& encoded_vec)
 {
-
+    packet_sequence_t result;
     std::deque<uint8_t> encoded;
     encoded.assign(encoded_vec.begin(), encoded_vec.end());
-    std::string result;
+    std::string error_str;
     while (encoded.size())
     {
         using namespace packet;
-        result += " | ";
+        //result += " | ";
         uint8_t encoded_tag = encoded[0];
         encoded.pop_front();
         uint8_t real_packet_tag = 0;
@@ -184,7 +198,7 @@ std::string get_packet_sequence(std::vector<uint8_t> const& encoded_vec)
         if (!(encoded_tag & 0x80))
         {
             // can continue here
-            result += " (invalid bit 7 in packet tag!)";
+            error_str += " (invalid bit 7 in packet tag!)";
         }
 
         header_format_e format = header_format_e::legacy;
@@ -193,22 +207,22 @@ std::string get_packet_sequence(std::vector<uint8_t> const& encoded_vec)
         {
             format          = header_format_e::new_form;
             real_packet_tag = encoded_tag & ~(0xc0);
-            std::cerr << "new format header" << std::endl;
+            //std::cerr << "new format header" << std::endl;
         }
         else
         {
             real_packet_tag = (encoded_tag >> 2) & 0x0F;
             legacy_len_spec = encoded_tag & 0x03;
-            std::cerr << "old format header" << std::endl;
+            //std::cerr << "old format header" << std::endl;
         }
         if (!is_valid_packet_tag(real_packet_tag))
         {
-            result += std::format(" encountered invalid packet tag {}", real_packet_tag);
-            return result;
+            std::cerr << std::format(" encountered invalid packet tag {} (fatal).\n", real_packet_tag);
+            return result; 
         }
-        packet::tag_e tag_as_enum = static_cast<packet::tag_e>(real_packet_tag);
-        result += std::format(" {}", packet::tag2str_map.at(tag_as_enum));
-        result += read_length_and_consume_content(real_packet_tag, format, encoded, legacy_len_spec, false) + "\n";
+        auto body = read_length_and_consume_content(real_packet_tag, format, encoded, legacy_len_spec, false);
+        std::unique_ptr<packet_t> new_packet = create_packet(static_cast<packet::tag_e>(real_packet_tag), format, body);
+       result.push_back(std::move(new_packet)); 
     }
     return result;
 }
