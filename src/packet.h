@@ -33,6 +33,8 @@ enum class tag_e
     padding         = 21,
 };
 
+bool is_valid_packet_tag(uint8_t tag);
+
 enum class header_format_e
 {
     legacy,

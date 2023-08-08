@@ -10,6 +10,8 @@
 #include <functional>
 #include <memory>
 #include <format>
+#include <botan/hex.h>
+#include <iostream>
 #include "packet.h"
 #include "aead_packet.h"
 
@@ -33,12 +35,15 @@ class generic_packet_t : public packet_t
 
     inline std::string to_string() const override
     {
-        std::string result = std::format("tag: {}\nbody length: {}", packet::tag2str_map.at(m_tag), m_body.size());
+        if(!packet::is_valid_packet_tag(static_cast<uint8_t>(packet_t::raw_tag())))
+        {
+            throw Exception(std::format("internal error: invalid packet tag {}", static_cast<uint8_t>(packet_t::raw_tag())));
+        }
+        std::string result = std::format("{} packet\n  body length: {}", packet::tag2str_map.at(packet_t::raw_tag()), m_body.size());
         return result;
     }
 
   private:
-    packet::tag_e m_tag;
     std::vector<uint8_t> m_body;
 };
 
@@ -48,6 +53,8 @@ inline std::unique_ptr<packet_t> create_packet(packet::tag_e tag,
 {
     using enum packet::tag_e;
     using enum packet::header_format_e;
+    uint8_t raw_tag_byte = static_cast<uint8_t>(tag);
+    std::cout << "create_packet: raw tag = " << Botan::hex_encode(&raw_tag_byte, 1) << std::endl;
     if (tag == aead)
     {
         return std::unique_ptr<packet_t>(new aead_packet_t(body, hdr_fmt));

@@ -26,9 +26,10 @@ const std::map<tag_e, std::string> tag2str_map {
 
 };
 
+
 bool is_valid_packet_tag(uint8_t tag)
 {
-    for (auto const& key__value : tag2str_map)
+    for (auto const& key__value : packet::tag2str_map)
     {
         if (static_cast<uint8_t>(key__value.first) == tag)
         {
@@ -37,7 +38,10 @@ bool is_valid_packet_tag(uint8_t tag)
     }
     return false;
 }
+
 } // namespace packet
+
+
 using namespace packet;
 
 packet_t::packet_t(tag_e raw_tag, header_format_e format) : m_raw_tag(raw_tag), m_format(format)
