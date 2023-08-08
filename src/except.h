@@ -46,4 +46,16 @@ class cli_exception_t : public Exception
 
 };
 
+class test_exception_t : public Exception 
+{
+  public:
+    test_exception_t(const char* prefix, const std::string& msg);
+    explicit test_exception_t(const std::string& msg);
+    virtual ~test_exception_t();
+
+  protected:
+    test_exception_t(const std::string& msg, const std::exception& e);
+
+};
+
 #endif /* _EXCEPT_H */

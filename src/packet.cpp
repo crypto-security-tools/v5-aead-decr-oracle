@@ -53,30 +53,52 @@ packet_t::~packet_t()
 std::vector<uint8_t> packet_t::packet_header(size_t contents_length) const
 {
     std::vector<uint8_t> v;
-    if (m_format != header_format_e::new_form)
+    if (m_format == header_format_e::legacy)
     {
-        throw Exception("legacy header format not implemented");
-    }
-    v.push_back(0x80 | 0x40 | static_cast<uint8_t>(m_raw_tag));
-    if (contents_length <= 191)
-    {
-        v.push_back(contents_length);
-    }
-    else if (contents_length <= 8383)
-    {
-        // bodyLen = ((1st_octet - 192) << 8) + (2nd_octet) + 192
-        uint32_t len_to_encode = contents_length - 192;
-        v.push_back((len_to_encode >> 8) + 192);
-        v.push_back((len_to_encode& 0xFF));
+        uint8_t len_type;
+        uint8_t packet_tag_shifted = static_cast<uint8_t>(m_raw_tag) << 2;
+        v.push_back(packet_tag_shifted);
+        if(contents_length <= 255)
+        {
+            len_type = 0;
+            v.push_back(contents_length);
+        }
+        else if(contents_length <= 0xFFFF)
+        {
+            len_type = 1;
+            v.push_back(contents_length >> 8);
+            v.push_back(contents_length);
+        }
+        else
+        {
+            throw Exception("old format packet header lengths > 0xFFFF are not implemented");
+        }
+        v[0] |= len_type | 0x80;
+        // throw Exception("legacy header format not implemented");
     }
     else
     {
-        // 0xFF as 1st octet, then bodyLen = (2nd_octet << 24) | (3rd_octet << 16) | (4th_octet << 8)  | 5th_octet
-        v.push_back(0xFF);
-        v.push_back(contents_length >> 24);
-        v.push_back(contents_length >> 16);
-        v.push_back(contents_length >> 8);
-        v.push_back(contents_length);
+        v.push_back(0x80 | 0x40 | static_cast<uint8_t>(m_raw_tag));
+        if (contents_length <= 191)
+        {
+            v.push_back(contents_length);
+        }
+        else if (contents_length <= 8383)
+        {
+            // bodyLen = ((1st_octet - 192) << 8) + (2nd_octet) + 192
+            uint32_t len_to_encode = contents_length - 192;
+            v.push_back((len_to_encode >> 8) + 192);
+            v.push_back((len_to_encode & 0xFF));
+        }
+        else
+        {
+            // 0xFF as 1st octet, then bodyLen = (2nd_octet << 24) | (3rd_octet << 16) | (4th_octet << 8)  | 5th_octet
+            v.push_back(0xFF);
+            v.push_back(contents_length >> 24);
+            v.push_back(contents_length >> 16);
+            v.push_back(contents_length >> 8);
+            v.push_back(contents_length);
+        }
     }
     return v;
 }

@@ -27,7 +27,8 @@ file_exception_t::file_exception_t(const std::string& msg, const std::exception&
 {
 }
 
-file_exception_t::file_exception_t(const char* prefix, const std::string& msg) : Exception(std::string(prefix) + " " + msg)
+file_exception_t::file_exception_t(const char* prefix, const std::string& msg)
+    : Exception(std::string(prefix) + " " + msg)
 {
 }
 
@@ -42,6 +43,24 @@ cli_exception_t::cli_exception_t(const std::string& msg, const std::exception& e
 {
 }
 
-cli_exception_t::cli_exception_t(const char* prefix, const std::string& msg) : Exception(std::string(prefix) + " " + msg)
+cli_exception_t::cli_exception_t(const char* prefix, const std::string& msg)
+    : Exception(std::string(prefix) + " " + msg)
+{
+}
+
+
+test_exception_t::~test_exception_t() {};
+
+test_exception_t::test_exception_t(const std::string& msg) : Exception(msg)
+{
+}
+
+test_exception_t::test_exception_t(const std::string& msg, const std::exception& e)
+    : Exception(msg + " failed with " + std::string(e.what()))
+{
+}
+
+test_exception_t::test_exception_t(const char* prefix, const std::string& msg)
+    : Exception(std::string(prefix) + " " + msg)
 {
 }

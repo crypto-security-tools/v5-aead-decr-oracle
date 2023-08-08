@@ -180,7 +180,7 @@ static std::vector<uint8_t> read_length_and_consume_content(uint8_t real_packet_
     return result;
 }
 
-packet_sequence_t get_packet_sequence(std::vector<uint8_t> const& encoded_vec)
+packet_sequence_t parse_packet_sequence(std::vector<uint8_t> const& encoded_vec)
 {
     packet_sequence_t result;
     std::deque<uint8_t> encoded;

@@ -92,7 +92,7 @@ void parse_packet_cmd(args::Subparser& parser)
 
     auto bin_data = read_binary_file(input_data_file_path);
 
-    std::cout << get_packet_sequence(bin_data).to_string() << std::endl;
+    std::cout << parse_packet_sequence(bin_data).to_string() << std::endl;
 }
 void invoke_decryption_cmd(args::Subparser& parser)
 {

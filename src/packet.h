@@ -84,6 +84,17 @@ class packet_sequence_t : public std::vector<std::unique_ptr<packet_t>>
         }
         return result;
     }
+
+    inline std::vector<uint8_t> get_encoded() const
+    {
+        std::vector<uint8_t> result;
+        for (auto const& ptr : *this)
+        {
+            auto that_encoded = ptr->get_encoded();
+            result.insert(result.end(), that_encoded.begin(), that_encoded.end());
+        }
+        return result;
+    }
 };
 
 #endif /* _PACKET_H */

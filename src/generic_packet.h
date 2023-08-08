@@ -17,7 +17,7 @@
 using packet_parse_visitor_f =
     std::function<void(uint32_t packet_nb, std::string const& error_str, std::unique_ptr<packet_t> packet_up)>;
 
-packet_sequence_t get_packet_sequence(std::vector<uint8_t> const& encoded_vec);
+packet_sequence_t parse_packet_sequence(std::vector<uint8_t> const& encoded_vec);
 
 class generic_packet_t : public packet_t
 {
