@@ -61,9 +61,22 @@ class aead_packet_t : public packet_t
      */
     aead_packet_t(std::span<const uint8_t> encoded_body, packet::header_format_e hdr_fmt = packet::header_format_e::new_form);
 
-    inline uint32_t chunk_size() const
+    inline uint64_t chunk_size() const
     {
-        return ((uint64_t)1 << (m_chunk_size_octet + 6));
+        return (static_cast<uint64_t>(1) << (m_chunk_size_octet + 6));
+    }
+    inline uint8_t chunk_size_octet() const
+    {
+        return m_chunk_size_octet;
+    }
+
+    inline void rewrite_chunk(aead_chunk_t const& chunk, uint32_t chunk_idx)
+    {
+        if(chunk_idx > m_chunks.size())
+        {
+            throw Exception("chunk idx for rewrite is out of range");
+        }
+        m_chunks[chunk_idx] = chunk;
     }
 
     inline std::vector<uint8_t> final_auth_tag() const
@@ -81,6 +94,10 @@ class aead_packet_t : public packet_t
         return m_aead_type;
     }
 
+    inline cipher_e cipher() const
+    {
+        return m_cipher;
+    }
 
     uint32_t plaintext_size() const;
 

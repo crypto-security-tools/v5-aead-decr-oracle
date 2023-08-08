@@ -97,6 +97,7 @@ class packet_sequence_t : public std::vector<std::unique_ptr<packet_t>>
         }
         return result;
     }
+
 };
 
 #endif /* _PACKET_H */

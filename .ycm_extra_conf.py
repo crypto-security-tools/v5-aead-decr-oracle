@@ -24,10 +24,16 @@ import ycm_core
 # compilation database set (by default, one is not set).
 # CHANGE THIS LIST OF FLAGS. YES, THIS IS THE DROID YOU HAVE BEEN LOOKING FOR.
 flags = [
-'-DBOOST_BEAST_USE_STD_STRING_VIEW'
 '-Wall',
 '-Wextra',
 '-Werror',
+'-Wunused',
+'-Wconversion',
+'-Wgnu',
+'-Wdocumentation',
+#'-Werror',
+'-Wold-style-cast',
+'-Wreorder',
 #'-Wno-unused-parameter',
 '-fexceptions',
 '-DNDEBUG',
@@ -44,6 +50,7 @@ flags = [
 # For a C project, you would set this to 'c' instead of 'c++'.
 '-x',
 'c++',
+'-I', '/home/fstrenzke/dev/tb_pqc/botan-fse/botan/build/include',
 #'-isystem', '/opt/gcc-11.2.0/include/c++/11.2.0',
 '-isystem', '/opt/gcc-13.1.0/include/c++/13.1.0',
 #'-isystem', '/opt/gcc-11.2.0/include/c++/11.2.0/x86_64-pc-linux-gnu',
@@ -53,7 +60,6 @@ flags = [
 '-I', 'src',
 '-I', '../args',
 '-I', '../cpp-subprocess',
-'-I', '/home/fstrenzke/dev/tb_pqc/botan-fse/botan/build/include',
 #'-I',
 #'/usr/include/c++/10/',
 #'-I',
