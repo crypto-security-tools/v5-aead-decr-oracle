@@ -54,7 +54,6 @@ inline std::unique_ptr<packet_t> create_packet(packet::tag_e tag,
     using enum packet::tag_e;
     using enum packet::header_format_e;
     uint8_t raw_tag_byte = static_cast<uint8_t>(tag);
-    std::cout << "create_packet: raw tag = " << Botan::hex_encode(&raw_tag_byte, 1) << std::endl;
     if (tag == aead)
     {
         return std::unique_ptr<packet_t>(new aead_packet_t(body, hdr_fmt));
