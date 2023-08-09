@@ -18,12 +18,13 @@ enum class openpgp_app_e
     rnp
 };
 
-struct vector_cfb_ciphertext_t {
-    
+struct vector_cfb_ciphertext_t
+{
+
     /**
      * The constant value of the leading blocks.
      */
-    //std::vector<uint8_t> leading_blocks;
+    // std::vector<uint8_t> leading_blocks;
     cipher_block_vec_t<AES_BLOCK_SIZE> leading_blocks;
 
     /**
@@ -38,14 +39,18 @@ struct vector_cfb_ciphertext_t {
 
     inline std::string to_string_brief() const
     {
-        return std::string (std::format("leading blocks block count: {}, oracle block capacity: {}, offset into decryption result: {}", leading_blocks.size(), nb_oracle_blocks, decryption_result_offset));
+        return std::string(
+            std::format("leading blocks block count: {}, oracle block capacity: {}, offset into decryption result: {}",
+                        leading_blocks.size(),
+                        nb_oracle_blocks,
+                        decryption_result_offset));
     }
 };
 
 struct cfb_decr_oracle_result_t
 {
     std::vector<uint8_t> decryption_result;
-    std::vector<uint8_t> recovered_encrypted_blocks;
+    cipher_block_vec_t<AES_BLOCK_SIZE> recovered_encrypted_blocks;
     vector_cfb_ciphertext_t vector_ciphertext;
 };
 
@@ -60,15 +65,52 @@ struct openpgp_app_decr_params_t
 std::vector<uint8_t> invoke_cfb_opgp_decr(openpgp_app_decr_params_t const& decr_params);
 
 
-cfb_decr_oracle_result_t cfb_opgp_decr_oracle(run_time_ctrl_t rtc,
-                                              uint32_t iter,
-                                              openpgp_app_decr_params_t const& decr_params,
-                                              size_t nb_leading_random_bytes,
-                                              std::span<const uint8_t> pkesk,
-                                              std::span<const uint8_t> oracle_blocks_single_pattern,
-                                              uint32_t oracle_pattern_repetitions,
-                                              std::filesystem::path const& msg_file_path,
-                                              std::span<const uint8_t> session_key // may have size 0
+std::vector<uint8_t> invoke_cfb_opgp_decr(std::span<const uint8_t> oracle_ciphertext,
+                                          openpgp_app_decr_params_t const& decr_params);
+
+
+std::vector<uint8_t> invoke_cfb_opgp_decr_yield_oracle_blocks(
+    vector_cfb_ciphertext_t const& vec_ct,
+    cipher_block_vec_t<AES_BLOCK_SIZE> const& oracle_ciphertext_blocks,
+
+    std::span<const uint8_t> pkesk,
+    openpgp_app_decr_params_t const& decr_params
+    /*std::filesystem::path const& msg_file_path,
+     openpgp_app_e app_type,
+    std::string const& application_path*/
+);
+
+
+/**
+ * @brief ECB decryption oracle internally using an OpenPGP CFB decryption oracle
+ *
+ * @param vec_ct vector ciphertext created by an inital query
+ * @param oracle_ciphertext_blocks the blocks that shall be ECB encrypted
+ * @param pkesk PKESK packet to use for the oracle query
+ * @param decr_params decryption parameters
+ * @param session_key option (may be empty) session key to verify the ECB encryption result from the oracle
+ *
+ * @return the ECB encryption result for ECB(oracle_ciphertext_blocks)
+ */
+cipher_block_vec_t<AES_BLOCK_SIZE> invoke_ecb_opgp_decr(
+    vector_cfb_ciphertext_t const& vec_ct,
+    cipher_block_vec_t<AES_BLOCK_SIZE> const& oracle_ciphertext_blocks,
+    std::span<const uint8_t> pkesk,
+    openpgp_app_decr_params_t const& decr_params,
+    std::span<const uint8_t> session_key
+
+);
+
+
+cfb_decr_oracle_result_t cfb_opgp_decr_oracle_inital_query(run_time_ctrl_t rtc,
+                                                           uint32_t iter,
+                                                           openpgp_app_decr_params_t const& decr_params,
+                                                           size_t nb_leading_random_bytes,
+                                                           std::span<const uint8_t> pkesk,
+                                                           std::span<const uint8_t> oracle_blocks_single_pattern,
+                                                           uint32_t oracle_pattern_repetitions,
+                                                           std::filesystem::path const& msg_file_path,
+                                                           std::span<const uint8_t> session_key // may have size 0
 );
 
 
@@ -83,7 +125,7 @@ cfb_decr_oracle_result_t cfb_opgp_decr_oracle(run_time_ctrl_t rtc,
  * @param second_step_ct the second-step ciphertext that was input into the CFB-decryption oracle (i.e. not featering
  * the 1st-step ciphertext)
  *
- * @return
+ * @return the detected repeated block pattern in the decryption result
  */
 std::vector<uint8_t> oracle_blocks_recovery_from_cfb_decryption_result(std::span<uint8_t> cfb_decryption_result,
                                                                        uint32_t nb_blocks_in_single_query_sequence,

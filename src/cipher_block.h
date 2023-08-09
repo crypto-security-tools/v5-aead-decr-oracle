@@ -30,7 +30,6 @@ template <uint8_t BLOCK_SIZE> class cipher_block_t : public std::array<uint8_t, 
         std::memcpy(&this[0], &rhs[0], BLOCK_SIZE);
     }
 
-
     inline cipher_block_t<BLOCK_SIZE>(std::span<const uint8_t> rhs)
     {
         if (rhs.size() != BLOCK_SIZE)
@@ -44,15 +43,17 @@ template <uint8_t BLOCK_SIZE> class cipher_block_t : public std::array<uint8_t, 
     {
         for (unsigned i = 0; i < BLOCK_SIZE; i++)
         {
-            this[i] ^= other[i];
+            (*this)[i] ^= other[i];
         }
         return *this;
     }
+
     inline void randomize(Botan::AutoSeeded_RNG& rng)
     {
 
         rng.randomize(&(*this)[0], BLOCK_SIZE);
     }
+
     inline cipher_block_t& operator=(std::vector<uint8_t> const& rhs)
     {
         if (rhs.size() != BLOCK_SIZE)
@@ -62,6 +63,7 @@ template <uint8_t BLOCK_SIZE> class cipher_block_t : public std::array<uint8_t, 
         std::memcpy(&this[0], &rhs[0], BLOCK_SIZE);
         return *this;
     }
+
     inline std::vector<uint8_t> to_uint8_vec() const
     {
         return std::vector<uint8_t>(this->begin(), this->end());
@@ -79,13 +81,21 @@ template <uint8_t BLOCK_SIZE> class cipher_block_t : public std::array<uint8_t, 
 template <uint8_t BLOCK_SIZE> class cipher_block_vec_t : public std::vector<cipher_block_t<BLOCK_SIZE>>
 {
   public:
+    struct full_blocks_and_trailing_t
+    {
+        cipher_block_vec_t<BLOCK_SIZE> full_blocks;
+        std::vector<uint8_t> trailing;
+    };
+
     inline cipher_block_vec_t() : std::vector<cipher_block_t<BLOCK_SIZE>>()
     {
     }
+
     inline cipher_block_vec_t(std::vector<cipher_block_t<BLOCK_SIZE>> const& vec)
         : std::vector<cipher_block_t<BLOCK_SIZE>>(vec)
     {
     }
+
     inline cipher_block_vec_t(std::span<const uint8_t> vec) : std::vector<cipher_block_t<BLOCK_SIZE>>()
     {
         if (vec.size() % BLOCK_SIZE)
@@ -96,6 +106,16 @@ template <uint8_t BLOCK_SIZE> class cipher_block_vec_t : public std::vector<ciph
         {
             this->push_back(cipher_block_t<BLOCK_SIZE>(std::span(vec.begin() + i, vec.begin() + i + BLOCK_SIZE)));
         }
+    }
+
+    inline std::vector<uint8_t> serialize() const 
+    {
+        std::vector<uint8_t> result;
+        for(auto const& b : *this)
+        {
+            result.insert(result.end(), b.begin(), b.end());
+        }
+        return result;
     }
 
     inline std::string hex() const
@@ -109,13 +129,26 @@ template <uint8_t BLOCK_SIZE> class cipher_block_vec_t : public std::vector<ciph
                 result += " ";
             }
             result += x.hex();
-        } 
+        }
         return result;
     }
 
     inline size_t byte_length() const
     {
         return this->size() * BLOCK_SIZE;
+    }
+
+    inline static full_blocks_and_trailing_t parse_to_blocks_and_trailing(std::span<const uint8_t> x)
+    {
+        full_blocks_and_trailing_t result;
+        //cipher_block_vec_t blocks;
+        size_t i = 0;
+        for (; i + BLOCK_SIZE <= x.size(); i += BLOCK_SIZE)
+        {
+            result.full_blocks.push_back(std::span(&x[i], &x[i + BLOCK_SIZE]));
+        }
+        result.trailing.assign(x.begin() + static_cast<long>(i), x.end());
+        return result;
     }
 };
 
@@ -143,7 +176,6 @@ void append_cb_vec_to_uint8_vec(std::vector<cipher_block_t<BLOCK_SIZE>> const& c
         std::copy(x.begin(), x.end(), std::back_inserter(out));
     }
 }
-
 
 template <uint8_t BLOCK_SIZE> std::vector<uint8_t> cb_vec_to_uint8_vec(cipher_block_t<BLOCK_SIZE> const& cbv)
 {

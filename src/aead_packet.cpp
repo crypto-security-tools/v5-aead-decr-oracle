@@ -18,13 +18,13 @@ std::vector<aead_chunk_t> whole_ciphertext_to_aead_chunks(std::span<const uint8_
     while (i < whole_ciphertext.size())
     {
         std::min(1, 2);
-        uint32_t this_chunk_size_plus_auth_tag =
+        size_t this_chunk_size_plus_auth_tag =
             std::min(static_cast<size_t>(chunk_size + auth_tag_size), whole_ciphertext.size() - i);
         if (this_chunk_size_plus_auth_tag < auth_tag_size)
         {
             throw Exception("chunk size too small to contain authentication tag");
         }
-        uint32_t this_chunk_size = this_chunk_size_plus_auth_tag - auth_tag_size;
+        size_t this_chunk_size = this_chunk_size_plus_auth_tag - auth_tag_size;
         result.push_back(
             {.encrypted = std::vector<uint8_t>(&whole_ciphertext[i], &whole_ciphertext[i + this_chunk_size]),
              .auth_tag  = std::vector<uint8_t>(&whole_ciphertext[i + this_chunk_size],

@@ -54,7 +54,7 @@ std::vector<uint8_t> openpgp_cfb_decryption_sim(std::span<const uint8_t> ciphert
 }
 
 cipher_block_t<AES_BLOCK_SIZE> ecb_encrypt_block(std::span<const uint8_t> key_span,
-                                                 cipher_block_t<AES_BLOCK_SIZE>& input)
+                                                 cipher_block_t<AES_BLOCK_SIZE> const& input)
 {
 
     std::string cipher_spec = botan_aes_ecb_cipher_spec_from_key_byte_len(key_span.size());
@@ -69,3 +69,13 @@ cipher_block_t<AES_BLOCK_SIZE> ecb_encrypt_block(std::span<const uint8_t> key_sp
     enc->encrypt(input_as_vec);
     return cipher_block_t<AES_BLOCK_SIZE>(input_as_vec);
 }
+
+cipher_block_vec_t<AES_BLOCK_SIZE> ecb_encrypt_blocks(std::span<const uint8_t> key_span, cipher_block_vec_t<AES_BLOCK_SIZE> const& input)
+{
+    cipher_block_vec_t<AES_BLOCK_SIZE> result;
+    for(auto const& block : input)
+    {
+        result.push_back(ecb_encrypt_block(key_span, block));
+    }
+    return result;
+} 

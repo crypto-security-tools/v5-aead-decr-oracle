@@ -12,3 +12,5 @@ NamespaceIndentation: None
 SpaceBeforeCpp11BracedList: 'true'
 UseTab: Never
 PointerAlignment: Left
+SeparateDefinitionBlocks: Always
+EmptyLineBeforeAccessModifier: LogicalBlock
