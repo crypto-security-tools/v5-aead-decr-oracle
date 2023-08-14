@@ -54,6 +54,10 @@ std::vector<uint8_t> encode_aead_chunks(std::vector<aead_chunk_t> const& chunks,
 
 } // namespace
 
+aead_packet_t::~aead_packet_t()
+{
+}
+
 aead_packet_t::aead_packet_t(std::span<const uint8_t> encoded, packet::header_format_e hdr_fmt)
     : packet_t(packet::tag_e::aead, hdr_fmt)
 {
@@ -65,7 +69,7 @@ aead_packet_t::aead_packet_t(std::span<const uint8_t> encoded, packet::header_fo
     }
     if (encoded[0] != 1)
     {
-        throw Exception("invalid version number for AEAD packet");
+        throw Exception(std::format("invalid version number for AEAD packet: {}", encoded[0]));
     }
     uint8_t cipher_octet = encoded[1];
     if (cipher_octet != 7 && cipher_octet != 8 && cipher_octet != 9)
@@ -101,7 +105,6 @@ std::vector<aead_chunk_t> aead_packet_t::aead_chunks() const
     return m_chunks;
 }
 
-
 std::vector<uint8_t> aead_packet_t::packet_contents() const
 {
     std::vector<uint8_t> result;
@@ -126,15 +129,14 @@ uint32_t aead_packet_t::plaintext_size() const
     return result;
 }
 
-
 std::string aead_packet_t::to_string() const
 {
-    std::string result =
-        std::format("AEAD packet\n  aead-type: {}\n  cipher = {}\n  chunk size: {}\n  overall plaintext size: {}\n  #chunks: {}",
-                    aead_type_to_string(m_aead_type),
-                    cipher_to_string(m_cipher),
-                    chunk_size(),
-                    plaintext_size(),
-                    aead_chunks().size());
+    std::string result = std::format(
+        "AEAD packet\n  aead-type: {}\n  cipher = {}\n  chunk size: {}\n  overall plaintext size: {}\n  #chunks: {}",
+        aead_type_to_string(m_aead_type),
+        cipher_to_string(m_cipher),
+        chunk_size(),
+        plaintext_size(),
+        aead_chunks().size());
     return result;
 }

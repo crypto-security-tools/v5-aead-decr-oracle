@@ -25,7 +25,7 @@ std::vector<uint8_t> determine_add_data_for_chunk(aead_packet_t const& aead, uin
  * @param vec_ct vector ciphertext determined in the previous step
  * @param pkesk the PKESK to prepend to the generated AEAD packet
  * @param session_key if non-empty, this value will be used to verify the decryption result returned by the oracle. The verification result is shown in the output.
- * @param aead_packet_encoded the packet (including the packet header) of the AEAD packet to be attacked
+ * @param aead_packet the AEAD packet to be attacked
  * @param encrypted_zero_block the encryption result for the zero block from the initial query
  * @param app_param application parameters for the oracle application invocation
  */
@@ -33,7 +33,7 @@ void ocb_attack_change_order_of_chunks(uint32_t iter,
                                        vector_cfb_ciphertext_t const& vec_ct,
                                        std::span<const uint8_t> pkesk,
                                        std::span<const uint8_t> session_key,
-                                       std::span<uint8_t> aead_packet_encoded,
+                                       aead_packet_t const& aead_packet,
                                        std::span<const uint8_t> encrypted_zero_block,
                                        openpgp_app_decr_params_t const& app_param);
 

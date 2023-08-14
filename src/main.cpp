@@ -232,7 +232,7 @@ void check_pattern_rep_in_cfb_plaintext_cmd(args::Subparser& parser)
     }
 }
 
-void decryption_of_random_blocks_cmd(args::Subparser& parser)
+void attack_cmd(args::Subparser& parser)
 {
     args::ValueFlag<uint32_t> nb_leading_random_bytes_arg(
         parser,
@@ -318,7 +318,7 @@ void decryption_of_random_blocks_cmd(args::Subparser& parser)
     std::filesystem::path tmp_msg_file_dir  = args::get(tmp_dir_arg);
     std::filesystem::path tmp_msg_file_path = tmp_msg_file_dir / "opgp_att_msg.bin";
 
-    const unsigned block_size = 16;
+    // const unsigned block_size = 16;
 
     /*if (file_with_aead_packet == "" && query_data_repetitions == 0)
     {
@@ -326,22 +326,27 @@ void decryption_of_random_blocks_cmd(args::Subparser& parser)
             "must provide --query-repeat-count with a positive (non-zero) value if a query data file is specified");
     }*/
 
-    std::vector<uint8_t> aead_packet_encoded;
+    aead_packet_t* aead_packet;
+    packet_sequence_t all_packets;
     if (aead_packet_file_arg)
     {
 
         std::filesystem::path file_with_aead_packet = args::get(aead_packet_file_arg);
         auto aead_file_data                         = read_binary_file(file_with_aead_packet);
-        auto all_packets                            = parse_packet_sequence(aead_file_data);
+        all_packets                                 = parse_packet_sequence(aead_file_data);
         for (auto const& p : all_packets)
         {
+            std::cout << std::format("parsed packet with raw tag: {} ({})\n",
+                                     static_cast<uint8_t>(p->raw_tag()),
+                                     packet::tag2str_map.at(p->raw_tag()));
             if (p->raw_tag() == packet::tag_e::aead)
             {
-                aead_packet_encoded = p->get_encoded();
+                std::cout << std::format("AEAD packet = {}\n", Botan::hex_encode(p->get_encoded()));
+                aead_packet = dynamic_cast<aead_packet_t*>(p.get());
                 break;
             }
         }
-        if (aead_packet_encoded.size() == 0)
+        if (aead_packet == nullptr)
         {
             throw Exception("provided file for AEAD packet does not seem to contain an AEAD packet");
         }
@@ -350,7 +355,7 @@ void decryption_of_random_blocks_cmd(args::Subparser& parser)
 
     std::vector<uint8_t> query_data(AES_BLOCK_SIZE); // zero block
 
-    size_t nb_blocks_in_query_data_pattern = query_data.size();
+    // size_t nb_blocks_in_query_data_pattern = query_data.size();
     if (query_data.size() * query_data_repetitions > 100 * 1000 * 1000)
     {
         throw Exception("trying to create query data of more than 100 MB, this is prohibited");
@@ -401,7 +406,7 @@ void decryption_of_random_blocks_cmd(args::Subparser& parser)
         {
             std::cerr << std::format("error deleting tmp message file at {}\n", std::string(tmp_msg_file_path));
         }
-        if (aead_packet_encoded.size() && recovered_blocks.size())
+        if (aead_packet != nullptr && recovered_blocks.size())
         {
 
             auto encrypted_zero_block = recovered_blocks[0];
@@ -410,11 +415,9 @@ void decryption_of_random_blocks_cmd(args::Subparser& parser)
                                               decr_result_set.vector_ciphertext,
                                               std::span(pkesk_bytes),
                                               session_key,
-                                                aead_packet_encoded,
+                                              *aead_packet,
                                               encrypted_zero_block,
-                                              decr_params
-                                              );
-
+                                              decr_params);
         }
     }
     std::cout << std::format("\n\n{} from {} decryptions returned non-empty decryption results.\n",
@@ -527,10 +530,8 @@ int main(int argc, char* argv[])
         &parse_packet_cmd);
     args::Command decrypt_with_app(
         commands, "invoke-decr", "invoke the decryption of a pgp message", &invoke_decryption_cmd);
-    args::Command decryption_of_random_blocks(commands,
-                                              "decr-rnd",
-                                              "invoke the decryption of random data as the SED packet in a gpg message",
-                                              &decryption_of_random_blocks_cmd);
+    args::Command decryption_of_random_blocks(
+        commands, "decr-rnd", "invoke the decryption of random data as the SED packet in a gpg message", &attack_cmd);
 
     args::Command check_pattern_rep_in_cfb_plaintext(
         commands,

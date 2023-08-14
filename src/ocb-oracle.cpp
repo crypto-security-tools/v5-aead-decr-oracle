@@ -105,29 +105,28 @@ void ocb_attack_change_order_of_chunks(uint32_t iter,
                                        vector_cfb_ciphertext_t const& vec_ct,
                                        std::span<const uint8_t> pkesk,
                                        std::span<const uint8_t> session_key,
-                                       std::span<uint8_t> aead_packet_encoded,
+                                       aead_packet_t const& aead_packet,
                                        std::span<const uint8_t> encrypted_zero_block,
                                        openpgp_app_decr_params_t const& decr_params)
 {
     std::string cipher_spec;
-    aead_packet_t aead(aead_packet_encoded);
-    if (aead.cipher() == cipher_e::aes_128)
+    if (aead_packet.cipher() == cipher_e::aes_128)
     {
         cipher_spec = "AES-128";
     }
-    else if (aead.cipher() == cipher_e::aes_256)
+    else if (aead_packet.cipher() == cipher_e::aes_256)
     {
         cipher_spec = "AES-256";
     }
     else
     {
-        throw Exception("unsupported cipher type");
+        throw Exception(std::format("unsupported cipher type {}", static_cast<uint8_t>(aead_packet.cipher())));
     }
     auto enc = Botan::BlockCipher::create(cipher_spec);
     L_computer l_computer(encrypted_zero_block);
 
     // TODO: swap the first and second chunk
-    std::vector<aead_chunk_t> chunks = aead.aead_chunks();
+    std::vector<aead_chunk_t> chunks = aead_packet.aead_chunks();
     if (chunks.size() < 2)
     {
         throw Exception(
@@ -141,8 +140,8 @@ void ocb_attack_change_order_of_chunks(uint32_t iter,
                         "is not the case here");
     }
     std::array<std::vector<uint8_t>, 2> add_data;
-    add_data[0] = determine_add_data_for_chunk(aead, 0);
-    add_data[1] = determine_add_data_for_chunk(aead, 1);
+    add_data[0] = determine_add_data_for_chunk(aead_packet, 0);
+    add_data[1] = determine_add_data_for_chunk(aead_packet, 1);
 
     // parse the add. data into full blocks and potentially trailing non-full block:
     std::array<cipher_block_vec_t<AES_BLOCK_SIZE>::full_blocks_and_trailing_t, 2> add_data_blocks_and_trail;

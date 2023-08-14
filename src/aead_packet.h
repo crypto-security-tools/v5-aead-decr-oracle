@@ -106,6 +106,7 @@ class aead_packet_t : public packet_t
 
     std::vector<aead_chunk_t> aead_chunks() const;
 
+    virtual ~aead_packet_t();
   protected:
     std::vector<uint8_t> packet_contents() const override;
 
