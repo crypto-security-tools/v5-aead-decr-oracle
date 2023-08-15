@@ -408,7 +408,8 @@ void attack_cmd(args::Subparser& parser)
         }
         if (aead_packet != nullptr && recovered_blocks.size())
         {
-
+            openpgp_app_decr_params_t decr_params_copy(decr_params);
+            decr_params_copy.ct_filename_or_data = tmp_msg_file_path;
             auto encrypted_zero_block = recovered_blocks[0];
             std::cout << "starting OCB chunk exchange attack...\n";
             ocb_attack_change_order_of_chunks(i,
@@ -417,7 +418,7 @@ void attack_cmd(args::Subparser& parser)
                                               session_key,
                                               *aead_packet,
                                               encrypted_zero_block,
-                                              decr_params);
+                                              decr_params_copy);
         }
     }
     std::cout << std::format("\n\n{} from {} decryptions returned non-empty decryption results.\n",

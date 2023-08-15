@@ -5,6 +5,17 @@
 #include "sed-oracle.h"
 #include "aead_packet.h"
 
+ /* @brief Create the nonce for a v5 AEAD chunk.
+ *
+ * @param aead the AEAD packet to which the chunks belong
+ * @param chunk_idx_non_final the index of the non-final chunk. Is unused if the final empty chunk is processed.
+ * @param is_final_empty_chunk whether this is the final empty chunk. Defaults to false.
+ *
+ * @return  the nonce for the specified chunk
+ */
+std::vector<uint8_t> determine_nonce_for_aead_chunk(aead_packet_t const& aead,
+                                                  uint64_t const chunk_idx_non_final,
+                                                  bool const is_final_empty_chunk);
 
 /**
  * @brief Create the additional data for a v5 AEAD chunk.

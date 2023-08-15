@@ -5,6 +5,8 @@
 #include <string>
 #include <cstdint>
 #include <span>
+#include <iostream>
+#include <format>
 #include "packet.h"
 #include "except.h"
 
@@ -63,7 +65,9 @@ class aead_packet_t : public packet_t
 
     inline uint64_t chunk_size() const
     {
-        return (static_cast<uint64_t>(1) << (m_chunk_size_octet + 6));
+        size_t chunk_size = static_cast<uint64_t>(1) << (m_chunk_size_octet + 6);
+        std::cout << std::format("computing from octet {} the chunksize {}\n", m_chunk_size_octet, chunk_size);
+        return (chunk_size);
     }
     inline uint8_t chunk_size_octet() const
     {

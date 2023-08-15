@@ -102,8 +102,10 @@ template <uint8_t BLOCK_SIZE> class cipher_block_vec_t : public std::vector<ciph
         {
             throw Exception("trying to create cipher_block_vec_t from data which is not a multiple of the block size");
         }
+        std::cout << "cipher_block_vec_t(std::span<const uint8_t> vec)\n";
         for (size_t i = 0; i < vec.size(); i += BLOCK_SIZE)
         {
+            std::cout << std::format("  i = {}\n", i);
             this->push_back(cipher_block_t<BLOCK_SIZE>(std::span(vec.begin() + i, vec.begin() + i + BLOCK_SIZE)));
         }
     }

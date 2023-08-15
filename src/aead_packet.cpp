@@ -5,32 +5,44 @@
 #include <algorithm>
 #include <format>
 #include <cassert>
+#include <iostream>
 
 namespace
 {
 
-std::vector<aead_chunk_t> whole_ciphertext_to_aead_chunks(std::span<const uint8_t> whole_ciphertext,
+std::vector<aead_chunk_t> whole_ciphertext_excluding_final_tag_to_aead_chunks(std::span<const uint8_t> whole_ciphertext,
                                                           uint64_t chunk_size)
 {
     uint32_t i                   = 0;
     const uint32_t auth_tag_size = 16;
     std::vector<aead_chunk_t> result;
-    while (i < whole_ciphertext.size())
+    if(whole_ciphertext.size() < auth_tag_size)
     {
-        std::min(1, 2);
+        throw Exception("ciphertext must at least contain the final authentication tag");
+    }
+    while (i < whole_ciphertext.size()) // we want to leave the auth tag of the final chunk without data
+    {
+        size_t rem_len = whole_ciphertext.size() - i;
+        
         size_t this_chunk_size_plus_auth_tag =
-            std::min(static_cast<size_t>(chunk_size + auth_tag_size), whole_ciphertext.size() - i);
+            std::min(static_cast<size_t>(chunk_size + auth_tag_size), whole_ciphertext.size() - i); 
+        
         if (this_chunk_size_plus_auth_tag < auth_tag_size)
         {
-            throw Exception("chunk size too small to contain authentication tag");
+            throw Exception(std::format("internal error: combined chunk size too small to contain authentication tag: {}", this_chunk_size_plus_auth_tag));
         }
         size_t this_chunk_size = this_chunk_size_plus_auth_tag - auth_tag_size;
         result.push_back(
             {.encrypted = std::vector<uint8_t>(&whole_ciphertext[i], &whole_ciphertext[i + this_chunk_size]),
              .auth_tag  = std::vector<uint8_t>(&whole_ciphertext[i + this_chunk_size],
-                                              &whole_ciphertext[i + this_chunk_size + 16])});
+                                              &whole_ciphertext[i + this_chunk_size + auth_tag_size])});
         i += this_chunk_size + auth_tag_size;
     }
+    if (i != whole_ciphertext.size())
+    {
+        throw Exception(std::format("internal error in chunk parsing: i = {}, whole_ciphertext size = {}", i, whole_ciphertext.size()));
+    }
+
     return result;
 }
 
@@ -96,7 +108,7 @@ aead_packet_t::aead_packet_t(std::span<const uint8_t> encoded, packet::header_fo
     this->m_chunk_size_octet = encoded[3];
     this->m_iv.assign(&encoded[4], &encoded[4 + iv_size]);
     std::vector<uint8_t> ciphertext(&encoded[4 + iv_size], &encoded[encoded.size() - auth_tag_size]);
-    m_chunks = whole_ciphertext_to_aead_chunks(ciphertext, chunk_size());
+    m_chunks = whole_ciphertext_excluding_final_tag_to_aead_chunks(ciphertext, chunk_size());
     this->m_final_auth_tag.assign(&encoded[encoded.size() - auth_tag_size], &encoded[encoded.size()]);
 }
 
@@ -138,5 +150,12 @@ std::string aead_packet_t::to_string() const
         chunk_size(),
         plaintext_size(),
         aead_chunks().size());
+    uint32_t cnt = 0;
+    for (auto const& chunk : this->aead_chunks())
+    {
+        result += std::format(" chunks {}:\n", cnt++);
+        result += std::format(
+            "     encrypted size: {}\n    auth tag size: {} ", chunk.encrypted.size(), chunk.auth_tag.size());
+    }
     return result;
 }

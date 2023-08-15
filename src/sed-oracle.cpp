@@ -269,7 +269,9 @@ std::vector<uint8_t> invoke_cfb_opgp_decr(openpgp_app_decr_params_t const& decr_
     auto stdout_stderr = p->communicate();
     // std::cout << "... finished\n";
     auto obuf   = stdout_stderr.first;
+    std::cout << std::format("invoke_cfb_opgp_decr(openpgp_app_decr_params_t const& decr_params): obuf.size() = {}\n", obuf.buf.size());
     auto errbuf = stdout_stderr.second;
+    std::cout << std::format("invoke_cfb_opgp_decr(openpgp_app_decr_params_t const& decr_params): errbuf.size() = {}\n", errbuf.buf.size());
 #if 0
     if (obuf.length)
     {
@@ -288,6 +290,7 @@ std::vector<uint8_t> invoke_cfb_opgp_decr(openpgp_app_decr_params_t const& decr_
     std::cerr << "stderr len: " << errbuf.length << std::endl;*/
     std::vector<uint8_t> result;
     result.insert(result.begin(), obuf.buf.data(), obuf.buf.data() + obuf.length);
+    std::cout << std::format("invoke_cfb_opgp_decr(openpgp_app_decr_params_t const& decr_params): returning result of length {}\n", result.size());
     return result;
 }
 
@@ -306,11 +309,14 @@ cipher_block_vec_t<AES_BLOCK_SIZE> invoke_ecb_opgp_decr(
 
     std::vector<uint8_t> cfb_decr =
         invoke_cfb_opgp_decr_yield_oracle_blocks(vec_ct, actual_ciphertext, pkesk, decr_params);
+    std::cout << std::format("raw CFB decryption result = {}\n", cfb_decr.size());
     {
         size_t over_len = cfb_decr.size() % AES_BLOCK_SIZE;
         if (over_len)
         {
+            std::cout << std::format("deleting {} trailing bytes from CFB decryption result\n", over_len);
             cfb_decr.erase(cfb_decr.end() - static_cast<int>(over_len), cfb_decr.end());
+            std::cout << std::format("  ... remaining decryption CFB result length is {}\n", cfb_decr.size());
         }
     }
     cipher_block_vec_t<AES_BLOCK_SIZE> oracle_blocks_cfb(cfb_decr);
@@ -363,7 +369,12 @@ std::vector<uint8_t> invoke_cfb_opgp_decr_yield_oracle_blocks(
     full_ciphertext.insert(full_ciphertext.end(), oracle_part.begin(), oracle_part.end());
 
     auto decryption_result = invoke_cfb_opgp_decr(full_ciphertext, decr_params);
+    if(decryption_result.size() < vec_ct.decryption_result_offset)
+    {
+        throw Exception(std::format("invoke_cfb_opgp_decr_yield_oracle_blocksI) the raw CFB decryption result is shorter (namely {} bytes) than the offset expected according to the information in the vector ciphertext (namely {})", decryption_result.size(), vec_ct.decryption_result_offset));
+    }
     decryption_result.erase(decryption_result.begin(), decryption_result.begin() + vec_ct.decryption_result_offset);
+    std::cout << std::format("invoke_cfb_opgp_decr_yield_oracle_blocks(): returning result of length {}\n", decryption_result.size());
     return decryption_result;
 }
 
@@ -373,10 +384,11 @@ std::vector<uint8_t> invoke_cfb_opgp_decr(std::span<const uint8_t> oracle_cipher
 
     if(!std::holds_alternative<std::string>(decr_params.ct_filename_or_data))
     {
-        throw Exception("expecting app_param to hold file name");
+        throw Exception(std::format("expecting app_param to hold file name, index = {}\n", decr_params.ct_filename_or_data.index()));
     }
     write_binary_file(std::span(oracle_ciphertext), std::get<std::string>(decr_params.ct_filename_or_data));
-    return invoke_cfb_opgp_decr(decr_params);
+    auto result = invoke_cfb_opgp_decr(decr_params);
+    return result; 
 }
 
 cfb_decr_oracle_result_t cfb_opgp_decr_oracle_inital_query(run_time_ctrl_t rtc,

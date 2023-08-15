@@ -26,6 +26,12 @@ std::vector<uint8_t> read_binary_file(std::string const& filename)
 }
 
 
+/**
+ * @brief Write binary file
+ *
+ * @param data data to write
+ * @param file_path path of the file to write
+ */
 void write_binary_file(std::span<const uint8_t> data, std::string const& file_path)
 {
     auto myfile = std::fstream(file_path, std::ios::out | std::ios::binary);

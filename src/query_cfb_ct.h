@@ -19,10 +19,10 @@ template <uint8_t BLOCK_SIZE> class query_cfb_ct_t
 
     std::vector<uint8_t> serialize() const;
 
-    uint32_t offset_of_first_oracle_block() const
+    /*uint32_t offset_of_first_oracle_block() const
     {
         return BLOCK_SIZE + 2 + m_leading_random_blocks.byte_length();
-    }
+    }*/
 
    cipher_block_vec_t<BLOCK_SIZE> const& oracle_blocks_single_pattern() const
    {
