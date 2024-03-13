@@ -146,6 +146,7 @@ void ocb_attack_change_order_of_chunks(uint32_t iter,
     }
     else
     {
+        std::cerr << "AEAD packet:\n" << aead_packet.to_string() << "\n";
         throw Exception(std::format("unsupported cipher type {}", static_cast<uint8_t>(aead_packet.cipher())));
     }
     auto enc = Botan::BlockCipher::create(cipher_spec);

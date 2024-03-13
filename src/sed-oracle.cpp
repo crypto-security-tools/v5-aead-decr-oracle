@@ -158,7 +158,7 @@ std::optional<cipher_block_t<AES_BLOCK_SIZE>> recover_ecb_encryption_for_single_
         return std::optional<cipher_block_t<AES_BLOCK_SIZE>>();
     }
 
-    uint32_t offset_of_first_oracle_block_in_ct = query_ct.offset_of_first_oracle_block();
+    //uint32_t offset_of_first_oracle_block_in_ct = query_ct.offset_of_first_oracle_block();
     cipher_block_vec_t<AES_BLOCK_SIZE> rep_pt_blocks(
         std::span(cfb_decryption_result.begin() + offset_of_rep_in_decr_res,
                   cfb_decryption_result.begin() + offset_of_rep_in_decr_res + 2 * AES_BLOCK_SIZE));

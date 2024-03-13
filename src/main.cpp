@@ -326,7 +326,7 @@ void attack_cmd(args::Subparser& parser)
             "must provide --query-repeat-count with a positive (non-zero) value if a query data file is specified");
     }*/
 
-    aead_packet_t* aead_packet;
+    aead_packet_t* aead_packet = nullptr;
     packet_sequence_t all_packets;
     if (aead_packet_file_arg)
     {
