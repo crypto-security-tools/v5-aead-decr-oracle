@@ -41,7 +41,8 @@ std::vector<uint8_t> determine_add_data_for_chunk(aead_packet_t const& aead, uin
  * @param app_param application parameters for the oracle application invocation
  */
 void ocb_attack_change_order_of_chunks(uint32_t iter,
-                                       vector_cfb_ciphertext_t const& vec_ct,
+                                       //vector_cfb_ciphertext_t const& vec_ct,
+                                       vector_ct_t & vec_ct,
                                        std::span<const uint8_t> pkesk,
                                        std::span<const uint8_t> session_key,
                                        aead_packet_t const& aead_packet,

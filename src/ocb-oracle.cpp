@@ -128,7 +128,8 @@ std::vector<uint8_t> determine_add_data_for_chunk(aead_packet_t const& aead,
 }
 
 void ocb_attack_change_order_of_chunks(uint32_t iter,
-                                       vector_cfb_ciphertext_t const& vec_ct,
+                                       //vector_cfb_ciphertext_t const& vec_ct,
+                                       vector_ct_t & vec_ct,
                                        std::span<const uint8_t> pkesk,
                                        std::span<const uint8_t> session_key,
                                        aead_packet_t const& aead_packet,
@@ -246,7 +247,7 @@ void ocb_attack_change_order_of_chunks(uint32_t iter,
         oracle_ciphertext_blocks.push_back(F[i] ^ add_data_blocks_and_trail[1].full_blocks[i]);
     }
 
-    assertm(vec_ct.leading_blocks.size() != 0, "leading blocks of vector ciphertext may not be empty");
+    assertm(vec_ct.leading_blocks().size() != 0, "leading blocks of vector ciphertext may not be empty");
 
     // no need to append another block (zero block) because the final CFB ciphertext block is not subject to block
     // decryption, this is done in the called function:

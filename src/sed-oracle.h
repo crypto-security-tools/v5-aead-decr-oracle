@@ -11,6 +11,7 @@
 #include <variant>
 #include <filesystem>
 #include <botan/hex.h>
+#include "vector_ct.h"
 
 enum class openpgp_app_e
 {
@@ -18,6 +19,7 @@ enum class openpgp_app_e
     rnp
 };
 
+#if 0
 struct vector_cfb_ciphertext_t
 {
 
@@ -46,12 +48,14 @@ struct vector_cfb_ciphertext_t
                         decryption_result_offset));
     }
 };
+#endif
 
 struct cfb_decr_oracle_result_t
 {
     std::vector<uint8_t> decryption_result;
     cipher_block_vec_t<AES_BLOCK_SIZE> recovered_encrypted_blocks;
-    vector_cfb_ciphertext_t vector_ciphertext;
+    //vector_cfb_ciphertext_t vector_ciphertext;
+    vector_ct_t vector_ciphertext;
 };
 
 struct openpgp_app_decr_params_t
@@ -70,9 +74,9 @@ std::vector<uint8_t> invoke_cfb_opgp_decr(std::span<const uint8_t> oracle_cipher
 
 
 std::vector<uint8_t> invoke_cfb_opgp_decr_yield_oracle_blocks(
-    vector_cfb_ciphertext_t const& vec_ct,
+    //vector_cfb_ciphertext_t const& vec_ct,
+    vector_ct_t & vec_ct,
     cipher_block_vec_t<AES_BLOCK_SIZE> const& oracle_ciphertext_blocks,
-
     std::span<const uint8_t> pkesk,
     openpgp_app_decr_params_t const& decr_params
     /*std::filesystem::path const& msg_file_path,
@@ -93,7 +97,8 @@ std::vector<uint8_t> invoke_cfb_opgp_decr_yield_oracle_blocks(
  * @return the ECB encryption result for ECB(oracle_ciphertext_blocks)
  */
 cipher_block_vec_t<AES_BLOCK_SIZE> invoke_ecb_opgp_decr(
-    vector_cfb_ciphertext_t const& vec_ct,
+    //vector_cfb_ciphertext_t const& vec_ct,
+    vector_ct_t & vec_ct,
     cipher_block_vec_t<AES_BLOCK_SIZE> const& oracle_ciphertext_blocks,
     std::span<const uint8_t> pkesk,
     openpgp_app_decr_params_t const& decr_params,
@@ -102,7 +107,7 @@ cipher_block_vec_t<AES_BLOCK_SIZE> invoke_ecb_opgp_decr(
 );
 
 
-cfb_decr_oracle_result_t cfb_opgp_decr_oracle_inital_query(run_time_ctrl_t rtc,
+cfb_decr_oracle_result_t cfb_opgp_decr_oracle_initial_query(run_time_ctrl_t rtc,
                                                            uint32_t iter,
                                                            openpgp_app_decr_params_t const& decr_params,
                                                            size_t nb_leading_random_bytes,

@@ -376,7 +376,7 @@ void attack_cmd(args::Subparser& parser)
     for (uint32_t i = 0; i < iterations; i++)
     {
 
-        auto decr_result_set = cfb_opgp_decr_oracle_inital_query(rtc,
+        auto decr_result_set = cfb_opgp_decr_oracle_initial_query(rtc,
                                                                  i,
                                                                  decr_params,
                                                                  nb_leading_random_bytes,
