@@ -413,12 +413,14 @@ void attack_cmd(args::Subparser& parser)
             auto encrypted_zero_block = recovered_blocks[0];
             std::cout << "starting OCB chunk exchange attack...\n";
             ocb_attack_change_order_of_chunks(i,
+                                              rtc,
                                               decr_result_set.vector_ciphertext,
                                               std::span(pkesk_bytes),
                                               session_key,
                                               *aead_packet,
                                               encrypted_zero_block,
-                                              decr_params_copy);
+                                              decr_params_copy,
+                                              tmp_msg_file_path);
         }
     }
     std::cout << std::format("\n\n{} from {} decryptions returned non-empty decryption results.\n",

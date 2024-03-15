@@ -128,13 +128,15 @@ std::vector<uint8_t> determine_add_data_for_chunk(aead_packet_t const& aead,
 }
 
 void ocb_attack_change_order_of_chunks(uint32_t iter,
-                                       //vector_cfb_ciphertext_t const& vec_ct,
-                                       vector_ct_t & vec_ct,
+                                       run_time_ctrl_t ctl,
+                                       // vector_cfb_ciphertext_t const& vec_ct,
+                                       vector_ct_t& vec_ct,
                                        std::span<const uint8_t> pkesk,
                                        std::span<const uint8_t> session_key,
                                        aead_packet_t const& aead_packet,
                                        std::span<const uint8_t> encrypted_zero_block,
-                                       openpgp_app_decr_params_t const& decr_params)
+                                       openpgp_app_decr_params_t const& decr_params,
+                                       std::filesystem::path const& msg_file_path)
 {
     std::string cipher_spec;
     if (aead_packet.cipher() == cipher_e::aes_128)
@@ -250,9 +252,11 @@ void ocb_attack_change_order_of_chunks(uint32_t iter,
     assertm(vec_ct.leading_blocks().size() != 0, "leading blocks of vector ciphertext may not be empty");
 
     // no need to append another block (zero block) because the final CFB ciphertext block is not subject to block
+    std::cout << "OCB chunk exchange attack: first oracle query ...\n";
     // decryption, this is done in the called function:
     cipher_block_vec_t<AES_BLOCK_SIZE> ecb_decr_blocks_from_oracle =
-        invoke_ecb_opgp_decr(vec_ct, oracle_ciphertext_blocks, pkesk, decr_params, session_key);
+        invoke_ecb_opgp_decr(ctl, vec_ct, oracle_ciphertext_blocks, pkesk, decr_params, session_key, msg_file_path);
+    std::cout << "... OCB chunk exchange attack: first oracle query completed\n";
 
     std::cout << "... OCB chunk exchange attack is not completely implemented\n";
 }

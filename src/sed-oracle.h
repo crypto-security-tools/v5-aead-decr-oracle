@@ -73,16 +73,14 @@ std::vector<uint8_t> invoke_cfb_opgp_decr(std::span<const uint8_t> oracle_cipher
                                           openpgp_app_decr_params_t const& decr_params);
 
 
-std::vector<uint8_t> invoke_cfb_opgp_decr_yield_oracle_blocks(
-    //vector_cfb_ciphertext_t const& vec_ct,
-    vector_ct_t & vec_ct,
+std::vector<uint8_t> invoke_cfb_opgp_decr_with_vec_ct(
+    run_time_ctrl_t ctl,
+    // vector_cfb_ciphertext_t const& vec_ct,
+    vector_ct_t& vec_ct,
     cipher_block_vec_t<AES_BLOCK_SIZE> const& oracle_ciphertext_blocks,
-    std::span<const uint8_t> pkesk,
-    openpgp_app_decr_params_t const& decr_params
-    /*std::filesystem::path const& msg_file_path,
-     openpgp_app_e app_type,
-    std::string const& application_path*/
-);
+    std::span<const uint8_t> pkesk_bytes,
+    openpgp_app_decr_params_t const& decr_params,
+    std::filesystem::path const& msg_file_path);
 
 
 /**
@@ -97,12 +95,13 @@ std::vector<uint8_t> invoke_cfb_opgp_decr_yield_oracle_blocks(
  * @return the ECB encryption result for ECB(oracle_ciphertext_blocks)
  */
 cipher_block_vec_t<AES_BLOCK_SIZE> invoke_ecb_opgp_decr(
-    //vector_cfb_ciphertext_t const& vec_ct,
+    run_time_ctrl_t ctl,
     vector_ct_t & vec_ct,
     cipher_block_vec_t<AES_BLOCK_SIZE> const& oracle_ciphertext_blocks,
     std::span<const uint8_t> pkesk,
     openpgp_app_decr_params_t const& decr_params,
-    std::span<const uint8_t> session_key
+    std::span<const uint8_t> session_key,
+    std::filesystem::path const& msg_file_path
 
 );
 
