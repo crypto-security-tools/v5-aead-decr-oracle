@@ -420,7 +420,6 @@ cipher_block_vec_t<AES_BLOCK_SIZE> invoke_ecb_opgp_decr(
     auto actual_oracle_blocks = oracle_ciphertext_blocks;
     // append a trailing zero block because otherwise the final oracle block will not be recoverable from the CFB
     // decryption result:
-    actual_oracle_blocks.push_back(cipher_block_t<AES_BLOCK_SIZE>());
 
     std::vector<uint8_t> cfb_decr_result =
         invoke_cfb_opgp_decr_with_vec_ct(ctl, vec_ct, actual_oracle_blocks, pkesk, decr_params, msg_file_path);

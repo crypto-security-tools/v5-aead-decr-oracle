@@ -1,6 +1,7 @@
 
 #include "vector_ct.h"
 #include "query_cfb_ct.h"
+#include <vector>
 
 vector_ct_base_t::~vector_ct_base_t()
 {
@@ -27,6 +28,8 @@ std::vector<uint8_t> vector_ct_base_t::serialize() const
     {
         cipher_block::append_cb_vec_to_uint8_vec(m_oracle_blocks_single_pattern, result);
     }
+    std::vector<uint8_t> zero_block(V5AA_CIPH_BLOCK_SIZE);
+    result.insert(result.end(), zero_block.begin(), zero_block.end());
     // std::cout << std::format("serialize: + oracle blocks: {}\n", Botan::hex_encode(result));
     return result;
 }
