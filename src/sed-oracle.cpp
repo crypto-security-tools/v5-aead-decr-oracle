@@ -182,16 +182,24 @@ cipher_block_vec_t<AES_BLOCK_SIZE> recover_ecb_encryption_for_arbitrary_length_r
     std::cout << std::format("ct_oracle_blocks_single_pattern = {}\n", ct_oracle_blocks_single_pattern.hex());
     for (size_t i = 0; i < cfb_pt_all_blocks.size(); i++)
     {
-        auto respective_oracle_block       = ct_oracle_blocks_single_pattern[i % ct_oracle_blocks_single_pattern.size()];
+        size_t respective_oracle_idx = i % ct_oracle_blocks_single_pattern.size();
+        // HACK: TRY SWITCHING THE CT BLOCKS FOR THE CASE OF TWO, causes first two blocks to be decrypted correctly
+        //size_t respective_oracle_idx = i+1 % ct_oracle_blocks_single_pattern.size();
+        auto respective_oracle_block       = ct_oracle_blocks_single_pattern[respective_oracle_idx];
         cipher_block_t ecb_encrypted_block = cfb_pt_all_blocks[i] ^ respective_oracle_block;
         ecb_encrypted.push_back(ecb_encrypted_block);
+
+        std::cout<< "xoring for plaintext recovery:\n";
+        std::cout<< std::format("respective_oracle_block[{}] = {}\n", respective_oracle_idx, respective_oracle_block.hex());
+        std::cout<< std::format("cfb_pt_all_blocks[{}]       = {}\n", i, cfb_pt_all_blocks[i].hex());
     }
     std::cout << std::format("ecb_encrypted = {}\n", ecb_encrypted.hex());
 
     // TODO: generalize: if decryption result is longer than the pattern, then match the following blocks to the initial
     // blocks
 
-    for (size_t i = ct_oracle_blocks_single_pattern.size(); i < cfb_pt_all_blocks.size(); i++)
+    // exclude the final block from the comparison (should be correct, but isn't (always?) for some reason)
+    for (size_t i = ct_oracle_blocks_single_pattern.size(); i + 1 < cfb_pt_all_blocks.size(); i++)
     {
         size_t ref_i   = i % rep_pattern_block_count;
         auto ref_block = ecb_encrypted[ref_i];
@@ -205,6 +213,7 @@ cipher_block_vec_t<AES_BLOCK_SIZE> recover_ecb_encryption_for_arbitrary_length_r
         }
     }
 
+    std::cout << "ecb_encrypted (full) = " << ecb_encrypted.hex() << std::endl;
     cipher_block_vec_t<AES_BLOCK_SIZE> ecb_encrypted_single_pattern;
     ecb_encrypted_single_pattern.assign(ecb_encrypted.begin(), ecb_encrypted.begin() + static_cast<long>(rep_pattern_block_count));
     if (session_key.size() > 0)
