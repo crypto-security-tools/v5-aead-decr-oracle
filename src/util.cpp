@@ -4,7 +4,7 @@
 #include "except.h"
 
 namespace {
-std::string botan_aes_cipher_spec_part_from_key_byte_len(unsigned key_byte_len)
+std::string botan_aes_cipher_spec_part_from_key_byte_len(size_t key_byte_len)
 {
 
     if (key_byte_len!= 16 && key_byte_len != 32)
@@ -18,11 +18,11 @@ std::string botan_aes_cipher_spec_part_from_key_byte_len(unsigned key_byte_len)
 }
 }
 
-std::string botan_aes_cfb_cipher_spec_from_key_byte_len(unsigned key_byte_len)
+std::string botan_aes_cfb_cipher_spec_from_key_byte_len(size_t key_byte_len)
 {
   return botan_aes_cipher_spec_part_from_key_byte_len(key_byte_len) + "/CFB";
 }
-std::string botan_aes_ecb_cipher_spec_from_key_byte_len(unsigned key_byte_len)
+std::string botan_aes_ecb_cipher_spec_from_key_byte_len(size_t key_byte_len)
 {
   return botan_aes_cipher_spec_part_from_key_byte_len(key_byte_len); //+ "ECB/NoPadding";
 }

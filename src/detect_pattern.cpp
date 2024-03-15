@@ -19,7 +19,7 @@ uint32_t count_blocks_in_repeatet_pattern_area(std::span<const uint8_t> sought_p
     {
         throw Exception("count_blocks_in_repeatet_pattern_area(): sought_pattern is not a multiple of the block size");
     }
-    uint32_t sought_pattern_block_size = sought_pattern.size() / AES_BLOCK_SIZE;
+    uint32_t sought_pattern_block_size = static_cast<uint32_t>(sought_pattern.size()) / AES_BLOCK_SIZE;
     //std::cout << std::format("count_blocks_in_repeatet_pattern_area(): sought_pattern_block_size = {}, decryption result part size = {}\n", sought_pattern_block_size, decr_res_from_repeat_pos.size());
     for (uint32_t i = 0; i + sought_pattern.size() <= decr_res_from_repeat_pos.size(); i += sought_pattern.size())
     {
@@ -48,7 +48,7 @@ uint32_t count_blocks_in_repeatet_pattern_area(std::span<const uint8_t> sought_p
  * @param pattern_length_in_blocks the length of the pattern of repeated blocks expected in the plaintext
  * @param sought_block the block to match within the CFB plaintext
  *
- * @return
+ * @return rep_dect_result_t indicating the result
  */
 rep_dect_result_t find_block(std::span<const uint8_t> cfb_plaintext,
                              uint32_t const offset,
