@@ -638,6 +638,24 @@ cfb_decr_oracle_result_t cfb_opgp_decr_oracle_initial_query(run_time_ctrl_t rtc,
                 {
                     std::cout << std::format("  recovered ECB encryption candidate for oracle block {}\n",
                                              Botan::hex_encode(recov_ecb_encr->data(), recov_ecb_encr->size()));
+
+                    if (session_key.size() > 0)
+                    {
+                        auto actual_ecb_encrypted = ecb_encrypt_block(std::span(session_key), oracle_blocks_single_pattern );
+                        //if (actual_ecb_encrypted != ecb_encrypted)
+                        if ( actual_ecb_encrypted != recov_ecb_encr.value())
+                        {
+                            std::cout << std::format("actual_ecb_encrypted         = {}\n", actual_ecb_encrypted.hex());
+                            std::cout << std::format("ecb_encrypted_single_pattern = {}\n", recov_ecb_encr.value().hex());
+                            std::cerr << "  verification of ECB block encryption for single pattern with actual session key failed\n";
+                        }
+                        else
+                        {
+                            std::cout << "  verification of ECB block encryption for single pattern with actual session key succeeded\n";
+                        }
+                    }
+
+
                     recovered_blocks.push_back(recov_ecb_encr.value());
                 }
                 else
