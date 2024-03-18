@@ -60,19 +60,20 @@ uint32_t determine_number_of_repeated_blocks(std::span<const uint8_t> cfb_plaint
  * the oracle into the CFB ciphertext.
  *
  * @param cfb_decryption_result The CFB decrypted ciphertext returned by the oracle.
- * @param second_step_ct The second-stop CFB ciphertext that was input into the decryption oracle.
+ * @param second_step_ct The second-step CFB ciphertext that was input into the decryption oracle.
  * @param offset_in_ct The guess for the offset that the start of the CFB decryption result has into the second-step CFB
  * ciphertext.
  *
  * @return The ECB encryption of the blocks that were CFB-decrypted
  */
+// TODO: UNUSED, REMOVE
 std::vector<uint8_t> recover_ecb_encrypted_blocks_from_cfb_decryption_for_offset(
     std::span<uint8_t> cfb_decryption_result, std::span<const uint8_t> second_step_ct, uint32_t offset_in_ct)
 {
     const unsigned block_size = 16;
     std::vector<uint8_t> ecb_encrypted_blocks;
     uint32_t offset_in_block  = offset_in_ct % block_size;
-    uint32_t next_block_index = ((offset_in_ct + block_size) / block_size) - 1;
+    //uint32_t next_block_index = ((offset_in_ct + block_size) / block_size) - 1;
     uint32_t next_block_begin = offset_in_ct + (block_size - offset_in_block);
     // XOR the whole available decryption result starting from the start of the next block with ciphertext to recover
     // the ECB encrypted blocks.
@@ -91,6 +92,25 @@ std::vector<uint8_t> recover_ecb_encrypted_blocks_from_cfb_decryption_for_offset
     }
     return ecb_encrypted_blocks;
 }
+
+std::vector<uint8_t> make_pgp_msg(vector_ct_base_t const* query_ct,
+                                  std::span<const uint8_t> pkesk,
+                                  run_time_ctrl_t* rtc               = nullptr,
+                                  std::string const& log_file_prefix = "")
+{
+    symm_encr_data_packet_t sed      = symm_encr_data_packet_t::create_sedp_from_ciphertext(query_ct->serialize());
+    std::vector<uint8_t> encoded_sed = sed.get_encoded();
+    std::vector<uint8_t> pgp_msg;
+    pgp_msg.assign(pkesk.begin(), pkesk.end());
+    pgp_msg.insert(pgp_msg.end(), encoded_sed.begin(), encoded_sed.end());
+    if(rtc && log_file_prefix != "")
+    {
+        rtc->potentially_write_run_time_file(encoded_sed, log_file_prefix + "-encoded-sed");
+    }
+    return pgp_msg;
+}
+
+} // namespace
 
 #if 0
 /**
@@ -143,6 +163,7 @@ std::vector<uint8_t> determine_repeated_pattern_of_blocks(std::span<const uint8_
  * result.
  * @param query_ct the oracle blocks set in the the ciphertext, i.e. the repeated sequence of blocks responsible
  * for the repetition pattern the plaintext.
+ * @param offset_in_ct the offset into the ciphertext at the inital block position of the cfb_decryption_result
  *
  * @return The ECB encrypted oracle block. An empty vector is returned if the recovery failed.
  */
@@ -150,7 +171,9 @@ cipher_block_vec_t<AES_BLOCK_SIZE> recover_ecb_encryption_for_arbitrary_length_r
     std::span<const uint8_t> cfb_decryption_result,
     uint32_t offset_of_rep_in_decr_res,
     vector_ct_base_t const* query_ct,
-    std::span<const uint8_t> session_key)
+    std::span<const uint8_t> session_key,
+    uint32_t offset_in_ct
+    )
 {
     // determine the repeated count
     // uint32_t nb_rep_blocks = determine_number_of_repeated_blocks(cfb_decryption_result, offset_of_rep_in_decr_res);
@@ -182,16 +205,16 @@ cipher_block_vec_t<AES_BLOCK_SIZE> recover_ecb_encryption_for_arbitrary_length_r
     std::cout << std::format("ct_oracle_blocks_single_pattern = {}\n", ct_oracle_blocks_single_pattern.hex());
     for (size_t i = 0; i < cfb_pt_all_blocks.size(); i++)
     {
-        size_t respective_oracle_idx = i % ct_oracle_blocks_single_pattern.size();
+        size_t respective_oracle_idx = (i + offset_in_ct) % ct_oracle_blocks_single_pattern.size();
         // HACK: TRY SWITCHING THE CT BLOCKS FOR THE CASE OF TWO, causes first two blocks to be decrypted correctly
         //size_t respective_oracle_idx = i+1 % ct_oracle_blocks_single_pattern.size();
         auto respective_oracle_block       = ct_oracle_blocks_single_pattern[respective_oracle_idx];
         cipher_block_t ecb_encrypted_block = cfb_pt_all_blocks[i] ^ respective_oracle_block;
         ecb_encrypted.push_back(ecb_encrypted_block);
 
-        std::cout<< "xoring for plaintext recovery:\n";
+        /*std::cout<< "xoring for plaintext recovery:\n";
         std::cout<< std::format("respective_oracle_block[{}] = {}\n", respective_oracle_idx, respective_oracle_block.hex());
-        std::cout<< std::format("cfb_pt_all_blocks[{}]       = {}\n", i, cfb_pt_all_blocks[i].hex());
+        std::cout<< std::format("cfb_pt_all_blocks[{}]       = {}\n", i, cfb_pt_all_blocks[i].hex());*/
     }
     std::cout << std::format("ecb_encrypted = {}\n", ecb_encrypted.hex());
 
@@ -210,12 +233,18 @@ cipher_block_vec_t<AES_BLOCK_SIZE> recover_ecb_encryption_for_arbitrary_length_r
             // std::cerr << std::format("ct_oracle_blocks_single_pattern[{i}] = {}\n", ct_oracle_blocks_single_pattern[0].hex());
 
             std::cerr << "error with recovered ECB encryption for repeated blocks\n";
+            break;
         }
     }
 
-    std::cout << "ecb_encrypted (full) = " << ecb_encrypted.hex() << std::endl;
+    //std::cout << "ecb_encrypted (full) = " << ecb_encrypted.hex() << std::endl;
     cipher_block_vec_t<AES_BLOCK_SIZE> ecb_encrypted_single_pattern;
     ecb_encrypted_single_pattern.assign(ecb_encrypted.begin(), ecb_encrypted.begin() + static_cast<long>(rep_pattern_block_count));
+    std::cout << std::format("recover_ecb_encryption_for_arbitrary_length_rep_pattern(): ecb_encrypted_single_pattern = {}\n", ecb_encrypted_single_pattern.hex());
+
+    // TODO: FOR INITIAL QUERY ALSO IMPLEMENT THE VERIFICATION OF THE DECRYPTION
+    // cant't be done here, because the inner repetition pattern has not yet been removed:
+#if 0
     if (session_key.size() > 0)
     {
         auto actual_ecb_encrypted = ecb_encrypt_blocks(std::span(session_key), ct_oracle_blocks_single_pattern);
@@ -224,16 +253,17 @@ cipher_block_vec_t<AES_BLOCK_SIZE> recover_ecb_encryption_for_arbitrary_length_r
         {
             std::cout << std::format("actual_ecb_encrypted         = {}\n", actual_ecb_encrypted.hex());
             std::cout << std::format("ecb_encrypted_single_pattern = {}\n", ecb_encrypted_single_pattern.hex());
-            std::cerr << "  verification of ECB block encryption with actual session key failed\n";
+            std::cerr << "  verification of ECB block encryption for single pattern with actual session key failed\n";
             return cipher_block_vec_t<AES_BLOCK_SIZE>();
         }
         else
         {
-            std::cout << "  verification of ECB block encryption with actual session key succeeded\n";
+            std::cout << "  verification of ECB block encryption for single pattern with actual session key succeeded\n";
         }
     }
+#endif
 
-    return ecb_encrypted_single_pattern;
+    return ecb_encrypted;
 }
 
 /**
@@ -261,8 +291,9 @@ std::optional<cipher_block_t<AES_BLOCK_SIZE>> recover_ecb_encryption_for_single_
         cfb_decryption_result, offset_of_rep_in_decr_res, &query_ct, session_key);
     if (result.size() > 1)
     {
-        throw Exception("recover_ecb_encryption_for_single_block_rep_pattern(): internal error: decryption result size "
-                        "larger than 1");
+        /*throw Exception("recover_ecb_encryption_for_single_block_rep_pattern(): internal error: decryption result size "
+                        "larger than 1");*/
+        result.erase(result.begin() + 1);
     }
     if (result.size() == 0)
     {
@@ -271,7 +302,6 @@ std::optional<cipher_block_t<AES_BLOCK_SIZE>> recover_ecb_encryption_for_single_
     return result[0];
 }
 
-} // namespace
 
 std::vector<uint8_t> invoke_cfb_opgp_decr(std::span<const uint8_t> oracle_ciphertext,
                                           openpgp_app_decr_params_t const& decr_params)
@@ -287,17 +317,6 @@ std::vector<uint8_t> invoke_cfb_opgp_decr(std::span<const uint8_t> oracle_cipher
     return result;
 }
 
-std::vector<uint8_t> make_pgp_msg(
-                                                               vector_ct_base_t const* query_ct,
-                                                               std::span<const uint8_t> pkesk)
-{
-    symm_encr_data_packet_t sed = symm_encr_data_packet_t::create_sedp_from_ciphertext(query_ct->serialize());
-    auto encoded_sed            = sed.get_encoded();
-    std::vector<uint8_t> pgp_msg;
-    pgp_msg.assign(pkesk.begin(), pkesk.end());
-    pgp_msg.insert(pgp_msg.end(), encoded_sed.begin(), encoded_sed.end());
-    return pgp_msg;
-}
 
 std::vector<uint8_t> query_decr_cfb_decr_oracle_with_vector_ct(run_time_ctrl_t rtc,
                                                                vector_ct_base_t const* query_ct,
@@ -307,7 +326,7 @@ std::vector<uint8_t> query_decr_cfb_decr_oracle_with_vector_ct(run_time_ctrl_t r
                                                                std::string const& pgp_msg_log_file_name = "")
 {
 
-    std::vector<uint8_t> pgp_msg = make_pgp_msg(query_ct, pkesk_bytes);
+    std::vector<uint8_t> pgp_msg = make_pgp_msg(query_ct, pkesk_bytes, &rtc, pgp_msg_log_file_name);
     write_binary_file(std::span(pgp_msg), msg_file_path);
     auto decr_params_copy(decr_params);
     decr_params_copy.ct_filename_or_data = msg_file_path;
@@ -416,7 +435,7 @@ std::vector<uint8_t> invoke_cfb_opgp_decr(openpgp_app_decr_params_t const& decr_
 }
 
 cipher_block_vec_t<AES_BLOCK_SIZE> invoke_ecb_opgp_decr(
-    // vector_cfb_ciphertext_t const& vec_ct,
+    std::string const& pgp_msg_log_file_name,
     run_time_ctrl_t ctl,
     vector_ct_t& vec_ct,
     cipher_block_vec_t<AES_BLOCK_SIZE> const& oracle_ciphertext_blocks,
@@ -431,15 +450,18 @@ cipher_block_vec_t<AES_BLOCK_SIZE> invoke_ecb_opgp_decr(
     // decryption result:
 
     std::vector<uint8_t> cfb_decr_result =
-        invoke_cfb_opgp_decr_with_vec_ct(ctl, vec_ct, actual_oracle_blocks, pkesk, decr_params, msg_file_path);
+        invoke_cfb_opgp_decr_with_vec_ct(pgp_msg_log_file_name, ctl, vec_ct, actual_oracle_blocks, pkesk, decr_params, msg_file_path);
     std::cout << std::format("raw CFB decryption result with length = {}\n", cfb_decr_result.size());
 
-
-    cipher_block_vec_t<AES_BLOCK_SIZE> ecb_encr_blocks = recover_ecb_encryption_for_arbitrary_length_rep_pattern(cfb_decr_result, vec_ct.offs_of_oracle_blocks_into_decr_result(), &vec_ct, session_key);
-    if(ecb_encr_blocks.size() != oracle_ciphertext_blocks.size()) // should be unnecessary!
+     
+    //cipher_block_vec_t<AES_BLOCK_SIZE> ecb_encr_blocks = recover_ecb_encryption_for_arbitrary_length_rep_pattern(cfb_decr_result, vec_ct.offs_of_oracle_blocks_into_decr_result(), &vec_ct, session_key);
+    cipher_block_vec_t<AES_BLOCK_SIZE> ecb_encr_blocks = vec_ct.recover_ecb_from_cfb_decr(cfb_decr_result, session_key);
+    /*if(ecb_encr_blocks.size() != 2*oracle_ciphertext_blocks.size()) // should be unnecessary!
     {
         throw Exception("invoke_ecb_opgp_decr(): invalid length of decryption result from oracle");
-    }
+    }*/
+    std::cout << std::format("invoke_ecb_opgp_decr(): ecb_encr_blocks.size()          = {}\n",ecb_encr_blocks.size());
+    std::cout << std::format("invoke_ecb_opgp_decr(): oracle_ciphertext_blocks.size() = {}\n", oracle_ciphertext_blocks.size());
     return ecb_encr_blocks;
 #if 0
     {
@@ -488,6 +510,7 @@ cipher_block_vec_t<AES_BLOCK_SIZE> invoke_ecb_opgp_decr(
 }
 
 std::vector<uint8_t> invoke_cfb_opgp_decr_with_vec_ct(
+    std::string const& pgp_msg_log_file_name,
     run_time_ctrl_t ctl,
     // vector_cfb_ciphertext_t const& vec_ct,
     vector_ct_t& vec_ct,
@@ -505,7 +528,7 @@ std::vector<uint8_t> invoke_cfb_opgp_decr_with_vec_ct(
     
     vec_ct.set_oracle_pattern(oracle_ciphertext_blocks);
     std::vector<uint8_t> decryption_result =
-        query_decr_cfb_decr_oracle_with_vector_ct(ctl, &vec_ct, decr_params, pkesk_bytes, msg_file_path);
+        query_decr_cfb_decr_oracle_with_vector_ct(ctl, &vec_ct, decr_params, pkesk_bytes, msg_file_path, pgp_msg_log_file_name );
     return decryption_result;
 #if 0
     // build PKESK || SED
@@ -574,10 +597,11 @@ cfb_decr_oracle_result_t cfb_opgp_decr_oracle_initial_query(run_time_ctrl_t rtc,
     std::string pgp_msg_log_file_name = "";
     if (iter == 0)
     {
-        pgp_msg_log_file_name = std::format("sample_random_decryption_input-{}-no-positive", iter);
+        pgp_msg_log_file_name = std::format("{}-sample_random_decryption_input-no-positive", iter);
     }
     std::vector<uint8_t> decryption_result = query_decr_cfb_decr_oracle_with_vector_ct(
         rtc, &query_ct, decr_params, pkesk_bytes, msg_file_path, pgp_msg_log_file_name);
+    
 #endif
 
 
@@ -602,9 +626,9 @@ cfb_decr_oracle_result_t cfb_opgp_decr_oracle_initial_query(run_time_ctrl_t rtc,
                 auto plaintext =
                     openpgp_cfb_decryption_sim(query_ct.serialize(), std::make_optional(std::span(session_key)));
                 rtc.potentially_write_run_time_file(std::span(plaintext),
-                                                    std::format("random_decryption_plaintext-{}", iter));
+                                                    std::format("{}-random_decryption_plaintext", iter));
             }
-            rtc.potentially_write_run_time_file(decryption_result, std::format("random_decryption_result-{}", iter));
+            rtc.potentially_write_run_time_file(decryption_result, std::format("{}-random_decryption_result", iter));
 
 
             if (oracle_blocks_single_pattern.size() == AES_BLOCK_SIZE)

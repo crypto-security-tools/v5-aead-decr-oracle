@@ -248,6 +248,9 @@ void ocb_attack_change_order_of_chunks(uint32_t iter,
     {
         oracle_ciphertext_blocks.push_back(F[i] ^ add_data_blocks_and_trail[1].full_blocks[i]);
     }
+// TODO: REMOVE THIS: ADDING ANOTHER ZERO BLOCK FOR TESTING PURPOSES:
+//    oracle_ciphertext_blocks.push_back(cipher_block_t<AES_BLOCK_SIZE>());
+
 
     assertm(vec_ct.leading_blocks().size() != 0, "leading blocks of vector ciphertext may not be empty");
 
@@ -255,7 +258,7 @@ void ocb_attack_change_order_of_chunks(uint32_t iter,
     std::cout << "OCB chunk exchange attack: first oracle query ...\n";
     // decryption, this is done in the called function:
     cipher_block_vec_t<AES_BLOCK_SIZE> ecb_decr_blocks_from_oracle =
-        invoke_ecb_opgp_decr(ctl, vec_ct, oracle_ciphertext_blocks, pkesk, decr_params, session_key, msg_file_path);
+        invoke_ecb_opgp_decr(std::format("{}-ocb-exch-ord-of-chunks-att-init-query-pgp-msg", iter), ctl, vec_ct, oracle_ciphertext_blocks, pkesk, decr_params, session_key, msg_file_path);
     std::cout << "... OCB chunk exchange attack: first oracle query completed\n";
 
     std::cout << "... OCB chunk exchange attack is not completely implemented\n";

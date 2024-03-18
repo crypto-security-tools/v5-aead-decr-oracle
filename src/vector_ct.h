@@ -49,6 +49,8 @@ class vector_ct_base_t
 
     virtual std::vector<uint8_t> serialize() const;
 
+
+
     virtual ~vector_ct_base_t();
 
   protected:
@@ -103,6 +105,9 @@ class vector_ct_t : public vector_ct_base_t
     {
         return this->m_offs_of_oracle_blocks_into_decr_result;
     }
+
+    cipher_block_vec_t<AES_BLOCK_SIZE> recover_ecb_from_cfb_decr(std::span<const uint8_t> cfb_decryption_result,
+                                                                 std::span<const uint8_t> session_key) const;
 
   private:
 
