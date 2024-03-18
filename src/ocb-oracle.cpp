@@ -248,8 +248,6 @@ void ocb_attack_change_order_of_chunks(uint32_t iter,
     {
         oracle_ciphertext_blocks.push_back(F[i] ^ add_data_blocks_and_trail[1].full_blocks[i]);
     }
-// TODO: REMOVE THIS: ADDING ANOTHER ZERO BLOCK FOR TESTING PURPOSES:
-//    oracle_ciphertext_blocks.push_back(cipher_block_t<AES_BLOCK_SIZE>());
 
 
     assertm(vec_ct.leading_blocks().size() != 0, "leading blocks of vector ciphertext may not be empty");
