@@ -198,17 +198,15 @@ cipher_block_vec_t<AES_BLOCK_SIZE> recover_ecb_encryption_for_arbitrary_length_r
     std::cout << "cfb_pt_all_blocks: " << cfb_pt_all_blocks.hex() << std::endl;
 
     cipher_block_vec_t<AES_BLOCK_SIZE> ecb_encrypted;
-    cipher_block_vec_t<AES_BLOCK_SIZE> ct_oracle_blocks_single_pattern = query_ct->oracle_blocks_single_pattern();
+    cipher_block_vec_t<AES_BLOCK_SIZE> ct_oracle_blocks_single_pattern_expanded = query_ct->oracle_blocks_single_pattern_expanded();
 
     // cipher_block_t ecb_encrypted_0 = cfb_pt_all_blocks[0] ^ ct_oracle_blocks_single_pattern[0];
 
-    std::cout << std::format("ct_oracle_blocks_single_pattern = {}\n", ct_oracle_blocks_single_pattern.hex());
+    std::cout << std::format("ct_oracle_blocks_single_pattern_expanded = {}\n", ct_oracle_blocks_single_pattern_expanded.hex());
     for (size_t i = 0; i < cfb_pt_all_blocks.size(); i++)
     {
-        size_t respective_oracle_idx = (i + offset_in_ct) % ct_oracle_blocks_single_pattern.size();
-        // HACK: TRY SWITCHING THE CT BLOCKS FOR THE CASE OF TWO, causes first two blocks to be decrypted correctly
-        //size_t respective_oracle_idx = i+1 % ct_oracle_blocks_single_pattern.size();
-        auto respective_oracle_block       = ct_oracle_blocks_single_pattern[respective_oracle_idx];
+        size_t respective_oracle_idx = (i + offset_in_ct) % ct_oracle_blocks_single_pattern_expanded.size();
+        auto respective_oracle_block       = ct_oracle_blocks_single_pattern_expanded[respective_oracle_idx];
         cipher_block_t ecb_encrypted_block = cfb_pt_all_blocks[i] ^ respective_oracle_block;
         ecb_encrypted.push_back(ecb_encrypted_block);
 
@@ -222,7 +220,7 @@ cipher_block_vec_t<AES_BLOCK_SIZE> recover_ecb_encryption_for_arbitrary_length_r
     // blocks
 
     // exclude the final block from the comparison (should be correct, but isn't (always?) for some reason)
-    for (size_t i = ct_oracle_blocks_single_pattern.size(); i + 1 < cfb_pt_all_blocks.size(); i++)
+    for (size_t i = ct_oracle_blocks_single_pattern_expanded.size(); i + 1 < cfb_pt_all_blocks.size(); i++)
     {
         size_t ref_i   = i % rep_pattern_block_count;
         auto ref_block = ecb_encrypted[ref_i];

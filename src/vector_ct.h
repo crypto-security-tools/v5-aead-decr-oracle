@@ -22,6 +22,20 @@ class vector_ct_base_t
         return m_oracle_blocks_single_pattern;
     }
 
+    /**
+     * Return the 2-way inner expanded oracle pattern
+     *
+     * @return | O1 | O1 | O2 | O2 | ... | On | On | for the oracle pattern O1 | O2 | ... | On |
+     */
+    cipher_block_vec_t<V5AA_CIPH_BLOCK_SIZE> oracle_blocks_single_pattern_expanded() const;
+
+    /**
+     * Return the 2-way inner expanded oracle pattern
+     *
+     * @return | O1 | O1 | O2 | O2 | ... | O1 | O1 | ... | On | On | for the oracle pattern O1 | O2 | ... | On | On |
+     */
+    cipher_block_vec_t<V5AA_CIPH_BLOCK_SIZE> oracle_blocks_pattern_expanded_and_repeated() const;
+
     cipher_block_vec_t<V5AA_CIPH_BLOCK_SIZE> const& leading_blocks() const
     {
         return m_leading_random_blocks;
@@ -47,8 +61,15 @@ class vector_ct_base_t
                                        m_nb_oracle_blocks_repetitions));
     }
 
+    /**
+     * serialize the oracle blocks Oi, i ∈  [1, n] as O1 | O1 | O2 | O2 | ... | On | On | O1 | O1 | ... | On | On |
+     * where the inner repetition count is always 2 and the outer repetition count is
+     * this->m_nb_oracle_blocks_repetitions/2
+     *
+     *
+     * @return the serialized ciphertext
+     */
     virtual std::vector<uint8_t> serialize() const;
-
 
 
     virtual ~vector_ct_base_t();

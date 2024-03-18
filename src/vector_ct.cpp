@@ -53,14 +53,32 @@ vector_ct_base_t::~vector_ct_base_t()
 {
 }
 
-/**
- * serialize the oracle blocks Oi, i ∈  [1, n] as O1 | O1 | O2 | O2 | ... | On | On | O1 | O1 | ... | On | On |
- * where the inner repetition count is always 2 and the outer repetition count is
- * this->m_nb_oracle_blocks_repetitions/2
- *
- *
- * @return the serialized ciphertext
- */
+cipher_block_vec_t<V5AA_CIPH_BLOCK_SIZE> vector_ct_base_t::oracle_blocks_single_pattern_expanded() const
+{
+        cipher_block_vec_t<V5AA_CIPH_BLOCK_SIZE> result;
+        for (size_t block_in_pattern_idx = 0; block_in_pattern_idx < m_oracle_blocks_single_pattern.size();
+             block_in_pattern_idx++)
+        {
+            result.push_back(m_oracle_blocks_single_pattern[block_in_pattern_idx]);
+            result.push_back(m_oracle_blocks_single_pattern[block_in_pattern_idx]);
+        }
+        return result;
+}
+
+
+cipher_block_vec_t<V5AA_CIPH_BLOCK_SIZE> vector_ct_base_t::oracle_blocks_pattern_expanded_and_repeated() const
+{
+        cipher_block_vec_t<V5AA_CIPH_BLOCK_SIZE> result;
+        uint32_t nb_double_block_pattern_reps = m_nb_oracle_blocks_repetitions / 2;
+        for (uint32_t i = 0; i < nb_double_block_pattern_reps; i++)
+        {
+            auto expanded = oracle_blocks_single_pattern_expanded();
+            result.insert(result.end(), expanded.begin(), expanded.end());
+        }
+        return result;
+
+}
+
 std::vector<uint8_t> vector_ct_base_t::serialize() const
 {
 
@@ -78,16 +96,7 @@ std::vector<uint8_t> vector_ct_base_t::serialize() const
     cipher_block::append_cb_vec_to_uint8_vec(m_leading_random_blocks, result);
     // std::cout << std::format("serialize: + leading random: {}\n", Botan::hex_encode(result));
 
-    uint32_t nb_double_block_pattern_reps = m_nb_oracle_blocks_repetitions/2;
-    cipher_block_vec_t<V5AA_CIPH_BLOCK_SIZE> oracle_blocks_encoded;
-    for (uint32_t i = 0; i < nb_double_block_pattern_reps; i++)
-    {
-        for(size_t block_in_pattern_idx = 0; block_in_pattern_idx < m_oracle_blocks_single_pattern.size(); block_in_pattern_idx++)
-        {
-            oracle_blocks_encoded.push_back(m_oracle_blocks_single_pattern[block_in_pattern_idx]);
-            oracle_blocks_encoded.push_back(m_oracle_blocks_single_pattern[block_in_pattern_idx]);
-        }
-    }
+    cipher_block_vec_t<V5AA_CIPH_BLOCK_SIZE> oracle_blocks_encoded = oracle_blocks_pattern_expanded_and_repeated();
     cipher_block::append_cb_vec_to_uint8_vec(oracle_blocks_encoded, result);
     std::vector<uint8_t> zero_block(V5AA_CIPH_BLOCK_SIZE);
     result.insert(result.end(), zero_block.begin(), zero_block.end());
@@ -99,8 +108,8 @@ cipher_block_vec_t<AES_BLOCK_SIZE> vector_ct_t::recover_ecb_from_cfb_decr(
     std::span<const uint8_t> cfb_decryption_result,
     std::span<const uint8_t> session_key) const
 {
-    std::cout << std::format("vector_ct_t::recover_ecb_from_cfb_decr(): checking for pattern of size {}\n", this->m_oracle_blocks_single_pattern.size());
-    for (uint32_t ct_block_offs = 0; ct_block_offs < this->m_oracle_blocks_single_pattern.size(); ct_block_offs++)
+    std::cout << std::format("vector_ct_t::recover_ecb_from_cfb_decr(): checking for #offsets = {}\n", this->oracle_blocks_single_pattern_expanded().size());
+    for (uint32_t ct_block_offs = 0; ct_block_offs < this->oracle_blocks_single_pattern_expanded().size(); ct_block_offs++)
     {
         cipher_block_vec_t<AES_BLOCK_SIZE> result;
         cipher_block_vec_t<AES_BLOCK_SIZE> candidate_raw_ecb = recover_ecb_encryption_for_arbitrary_length_rep_pattern(
@@ -132,10 +141,11 @@ cipher_block_vec_t<AES_BLOCK_SIZE> vector_ct_t::recover_ecb_from_cfb_decr(
 
         if (session_key.size() > 0)
         {
-            cipher_block_vec_t<V5AA_CIPH_BLOCK_SIZE> oracle_blocks_rot;
+            /*cipher_block_vec_t<V5AA_CIPH_BLOCK_SIZE> oracle_blocks_rot;
             oracle_blocks_rot.assign(m_oracle_blocks_single_pattern.begin() + ct_block_offs,m_oracle_blocks_single_pattern.end());
             oracle_blocks_rot.insert(oracle_blocks_rot.end(), m_oracle_blocks_single_pattern.begin(), m_oracle_blocks_single_pattern.begin() + ct_block_offs);
-            auto actual_ecb_encrypted = ecb_encrypt_blocks(std::span(session_key), oracle_blocks_rot);
+            auto actual_ecb_encrypted = ecb_encrypt_blocks(std::span(session_key), oracle_blocks_rot);*/
+            auto actual_ecb_encrypted = ecb_encrypt_blocks(std::span(session_key), m_oracle_blocks_single_pattern);
             //if (actual_ecb_encrypted != ecb_encrypted)
             if ( actual_ecb_encrypted != result)
             {
