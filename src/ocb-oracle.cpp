@@ -155,18 +155,16 @@ void ocb_attack_change_order_of_chunks(uint32_t iter,
     auto enc = Botan::BlockCipher::create(cipher_spec);
     L_computer l_computer(encrypted_zero_block);
 
-    // TODO: swap the first and second chunk
     std::vector<aead_chunk_t> chunks = aead_packet.aead_chunks();
     std::cout << std::format("#chunks: {}\n", chunks.size());
-    if (chunks.size() < 2)
+    if (chunks.size() < 3)
     {
         throw Exception(
-            "provided AEAD packet has less than two chunks, chunk swapping attack is thus impossible. Aborting.");
+            "Provided AEAD packet has less than three chunks, (this simple) chunk swapping attack is thus impossible. Aborting.");
     }
-    aead_chunk_t first_chunk_new  = chunks[0];
-    aead_chunk_t second_chunk_new = chunks[1];
-    if (first_chunk_new.encrypted.size() != second_chunk_new.encrypted.size())
+    if (chunks[0].encrypted.size() != chunks[1].encrypted.size())
     {
+        // cannot happen
         throw Exception("attack is only designed for the case where the first two chunks are of the same length, this "
                         "is not the case here");
     }
@@ -220,7 +218,7 @@ void ocb_attack_change_order_of_chunks(uint32_t iter,
             trailing.resize(0);
             // compute the corresponding offset block:
             cipher_block_t<AES_BLOCK_SIZE> L_star = l_computer.star();
-            if(F.size() < ad_data.full_blocks.size())
+            if(F.size() < ad_data.full_blocks.size()) // should always be true
             {
                 cipher_block_t<AES_BLOCK_SIZE> prev_block; // again F_0 = [0]¹²⁸
                 if(F.size())
@@ -261,9 +259,9 @@ void ocb_attack_change_order_of_chunks(uint32_t iter,
 
     //std::cout << "... OCB chunk exchange attack is not completely implemented\n";
     //parse g as S_1 || . . . || S_n || S'_1 . . . || S'_n with N
-    if (ecb_encr_blocks_from_oracle.size() % 2)
+    if (ecb_encr_blocks_from_oracle.size() != oracle_ciphertext_blocks.size())
     {
-        throw Exception("invalid uneven size of 2nd oracle query for OCB block exchange attack");
+        throw Exception("invalid size of result returned from 2nd oracle query for OCB block exchange attack");
     }
     //size_t cnt_split = 0
     cipher_block_t<AES_BLOCK_SIZE> S_xor_sum;
