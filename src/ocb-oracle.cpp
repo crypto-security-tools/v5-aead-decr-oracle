@@ -325,6 +325,7 @@ const cipher_block_t<AES_BLOCK_SIZE> offset0_from_nonce(uint32_t iter,
     aead_packet_t mod_aead_packet(aead_packet);
     auto stripped_chunks = aead_packet.aead_chunks();
     stripped_chunks.pop_back();
+    stripped_chunks.pop_back();
     mod_aead_packet.set_chunks(stripped_chunks);
 
     // std::vector<uint8_t> add_data_final_orig = determine_add_data_for_chunk(aead_packet, 0, true);
@@ -335,7 +336,7 @@ const cipher_block_t<AES_BLOCK_SIZE> offset0_from_nonce(uint32_t iter,
 
     /* 2024-03-25:
 add_data_final_orig = D40109020000000000000000050000000000000104
-add_data_final_mod  = D40109020000000000000000040000000000000100
+add_data_final_mod  = D40109020000000000000000040000000000000100 OUTDATED, NOW REMOVING 2 CHUNKS
      *
      */
 
@@ -370,18 +371,24 @@ add_data_final_mod  = D40109020000000000000000040000000000000100
 
     cipher_block_vec_t<AES_BLOCK_SIZE> F;
     F.push_back(cipher_block_t<AES_BLOCK_SIZE>()); // F_0 = [0]^{128}
-    std::cout << std::format("#add data full blocks[0]: {}\n", add_data_blocks_and_trail.full_blocks.size());
-    for (uint32_t i = 1; i < add_data_blocks_and_trail.full_blocks.size(); i++)
+    std::cout << std::format("#add data full blocks: {}\n", add_data_blocks_and_trail.full_blocks.size());
+    for (uint32_t i = 1; i <= add_data_blocks_and_trail.full_blocks.size(); i++)
     {
         cipher_block_t<AES_BLOCK_SIZE> x(l_computer.get(var_ctz32(i))); // L_ntz(i)
         x ^= F[F.size() - 1];                                           // L_ntz(i) ⊕ F_{i-1}
         F.push_back(x);
+        std::cout << std::format("OCB hash: full blocks: adding offset = {}\n", x.hex());
     }
+
+    std::cout << std::format("OCB hash: full blocks: offsets = {}\n", F.hex());
+    // 2024-03-26: 00000000000000000000000000000000
+    // should be:  5A0CF529530563C7BEEFF34B38805E2A
+
     // F_0 is not used for the actual computations
     F.erase(F.begin());
 
     // padd the non-full trailing blocks of the add. data:
-    cipher_block_vec_t<AES_BLOCK_SIZE>::full_blocks_and_trailing_t ad_data = add_data_blocks_and_trail;
+    cipher_block_vec_t<AES_BLOCK_SIZE>::full_blocks_and_trailing_t & ad_data = add_data_blocks_and_trail;
     auto& trailing                                                         = ad_data.trailing;
     std::cout << std::format("trailing = {}\n", trailing.size());
     if (trailing.size() > 0)
@@ -405,6 +412,9 @@ add_data_final_mod  = D40109020000000000000000040000000000000100
                 prev_block = F[F.size() - 1];
             }
             F.push_back(prev_block ^ L_star);
+            std::cout << std::format("OCB hash: trailing: offset = {}\n", F[F.size() - 1].hex());
+            // 2024-03-26:  CC8FC86307C43B3651540F99F6A049E3 ✓
+            // expl. comp.: CC8FC86307C43B3651540F99F6A049E3
         }
     }
 
@@ -416,7 +426,7 @@ add_data_final_mod  = D40109020000000000000000040000000000000100
                                     add_data_blocks_and_trail.full_blocks.size()));
     }
 
-    // query for the encryption of A_1 ⊕ F_1 ‖ … ‖ A_n ⊕ F_n ‖ A'_1 ⊕ F_1 ‖ … ‖ A'_{n'} ⊕ F_{n'}}:
+    // query for the encryption of A_1 ⊕ F_1 ‖ … ‖ A_n ⊕ F_n
     cipher_block_vec_t<AES_BLOCK_SIZE> oracle_ciphertext_blocks;
     for (size_t i = 0; i < F.size(); i++)
     {
@@ -453,10 +463,13 @@ add_data_final_mod  = D40109020000000000000000040000000000000100
         S_xor_sum ^= block;
     }
     cipher_block_t<AES_BLOCK_SIZE> new_final_tag = S_xor_sum; // = HASH(K, A)
-
+    
+    std::cout << std::format("OCB hash result = {}\n", S_xor_sum.hex());
+    // 2024-03-26: 20CFE1468807AA36CD06A77E7983E24A 🗲
+    // according to expl. comp.: 945DA4DE430538FA1B38A57F20D0775D
 
     //  blockEncrypt_k ( F_0 ⊕ L_$ ) ⊕ HASH(K, A)
-    std::vector<uint8_t> nonce = aead_packet.iv();
+    std::vector<uint8_t> nonce = aead_packet.iv(); // 2057E8A5B09262C399588E2B8D334E
     // ignore excess nonce octets
     if (nonce.size() > 15)
 
@@ -471,9 +484,16 @@ add_data_final_mod  = D40109020000000000000000040000000000000100
     uint8_t new_final_chunk_idx = static_cast<uint8_t>(mod_aead_packet.aead_chunks().size());
 
     nonce[14] ^= new_final_chunk_idx;
+    std::cout << "nonce for tag computation of final empty chunk: " << Botan::hex_encode(nonce) << std::endl;
+
+    // 2024-03-26: 2057E8A5B09262C399588E2B8D334A NOW OUTDATED
+    // should be IV ⊕ 0x4 => E ⊕ A = 4 ✓ => NOW 3
 
     cipher_block_t<AES_BLOCK_SIZE> F_0 = offset0_from_nonce(
         iter, ctl, vec_ct, pkesk, session_key, decr_params, msg_file_path, nonce.data(), nonce.size());
+    std::cout << std::format("F_0 for encryption: {}\n", F_0.hex());
+    // 2024-03-26: F_0      = 4016F56F1B7DBEE38BB1A3E5C679D48B ✓
+    // F_0 from expl. comp. = 4016F56F1B7DBEE38BB1A3E5C679D48B
     cipher_block_t<AES_BLOCK_SIZE> F0_xor_Ldollar(l_computer.dollar());
     F0_xor_Ldollar ^= F_0;
 
@@ -495,9 +515,16 @@ add_data_final_mod  = D40109020000000000000000040000000000000100
                                     ecb_encr_F0_xor_Ldollar_block_from_oracle.size()));
     }
     new_final_tag ^= ecb_encr_F0_xor_Ldollar_block_from_oracle[0];
+    std::cout << "new final tag of final empty chunk computed in attack: " << Botan::hex_encode(new_final_tag) << std::endl;
+    // should be according to explicit computation: 8637FF5AFC8535EBE80E23D2E81F701F (accepted by GnuPG)
+    // is 2024-03-26:                               32A5BAC23787A7273E3021D3B14CE508 
 
+    // ======================================================================================//
+    // HACK FOR TESTING                                                                      //
+    //new_final_tag = Botan::hex_decode("8637FF5AFC8535EBE80E23D2E81F701F");                   //
+    //                                                                                       //
+    // ======================================================================================//
     mod_aead_packet.set_final_auth_tag(new_final_tag.to_uint8_vec());
-
 #if 0
     std::vector<aead_chunk_t> first_two_new_chunks = { 
         {.encrypted = aead_packet.aead_chunks()[1].encrypted, .auth_tag = new_tags[0].to_uint8_vec() },  
