@@ -87,7 +87,7 @@ void test_aead_packet()
         throw test_exception_t(
             std::format("invalid add. data length for non-final chunk: {} instead of 13", first_add_data_len));
     }
-    auto last_add_data_len = determine_add_data_for_chunk(aead, 0, true, /* arbitrary total bytes */ 10 ).size();
+    auto last_add_data_len = determine_add_data_for_chunk(aead, 0, true ).size();
     if (last_add_data_len != 21)
     {
         throw test_exception_t(

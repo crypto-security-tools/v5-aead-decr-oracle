@@ -83,6 +83,16 @@ class aead_packet_t : public packet_t
         m_chunks[chunk_idx] = chunk;
     }
 
+    inline void set_chunks(std::vector<aead_chunk_t> const& new_chunks)
+    {
+        m_chunks = new_chunks;
+    }
+
+    inline void set_final_auth_tag(std::vector<uint8_t> const& new_final_auth_tag)
+    {
+        m_final_auth_tag = new_final_auth_tag;
+    }
+
     inline std::vector<uint8_t> final_auth_tag() const
     {
         return m_final_auth_tag;
@@ -108,6 +118,9 @@ class aead_packet_t : public packet_t
 
     std::string to_string() const override;
 
+    /**
+     * Return the sequence of actual data chunks (i.e., excluding the empty chunk used for the computation of the final authentication tag).
+     */
     std::vector<aead_chunk_t> aead_chunks() const;
 
     virtual ~aead_packet_t();

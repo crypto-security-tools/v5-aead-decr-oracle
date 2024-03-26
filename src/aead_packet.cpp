@@ -153,9 +153,9 @@ std::string aead_packet_t::to_string() const
     uint32_t cnt = 0;
     for (auto const& chunk : this->aead_chunks())
     {
-        result += std::format(" chunks {}:\n", cnt++);
+        result += std::format(" chunk #{}:\n", cnt++);
         result += std::format(
-            "     encrypted size: {}\n    auth tag size: {} ", chunk.encrypted.size(), chunk.auth_tag.size());
+            "     encrypted size: {}\n    auth tag size: {}\n ", chunk.encrypted.size(), chunk.auth_tag.size());
     }
     return result;
 }

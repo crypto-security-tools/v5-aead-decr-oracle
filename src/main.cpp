@@ -411,8 +411,8 @@ void attack_cmd(args::Subparser& parser)
             openpgp_app_decr_params_t decr_params_copy(decr_params);
             decr_params_copy.ct_filename_or_data = tmp_msg_file_path;
             auto encrypted_zero_block = recovered_blocks[0];
-            std::cout << "starting OCB chunk exchange attack...\n";
-            ocb_attack_change_order_of_chunks(i,
+            std::cout << "starting OCB final chunk removal attack ...\n";
+            ocb_attack_remove_final_chunk(i,
                                               rtc,
                                               decr_result_set.vector_ciphertext,
                                               std::span(pkesk_bytes),
