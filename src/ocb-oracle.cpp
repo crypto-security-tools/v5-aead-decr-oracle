@@ -284,14 +284,14 @@ const cipher_block_t<AES_BLOCK_SIZE> offset0_from_nonce(uint32_t iter,
      *
      * need to compute tag for empty chunk:
      *
-     *          blockEncrypt_k (s_0 ⊕ F_0 ⊕ L_$ ) ⊕ HASH(K, A)
+     *          blockEncrypt_k (s_0 ⊕ G_0 ⊕ L_$ ) ⊕ HASH(K, A)
      *          s_0 = [0]¹²⁸
      *
      *          Ñ = num2str(taglen mod 128, 7) ‖ [0]^{120−|N|} ‖ 1 ‖ N
      *          q = str2num(Ñ[123:128]) // “bottom”
      *          f = blockEncryptk (Ñ[1:122] ‖ [0]⁶ ) // “Ktop”
      *          l = f ||(f[1:64] ⊕ f [9:72]) // “Stretch”
-     *          F_0 = l[1 + q : 128 + q] // “Offset”
+     *          G_0 = l[1 + q : 128 + q] // “Offset”
      *
      */
 
@@ -424,7 +424,7 @@ const cipher_block_t<AES_BLOCK_SIZE> offset0_from_nonce(uint32_t iter,
     
     std::cout << std::format("OCB hash result = {}\n", S_xor_sum.hex());
 
-    //  blockEncrypt_k ( F_0 ⊕ L_$ ) ⊕ HASH(K, A)
+    //  blockEncrypt_k ( G_0 ⊕ L_$ ) ⊕ HASH(K, A)
     std::vector<uint8_t> nonce = aead_packet.iv();
     // ignore excess nonce octets
     if (nonce.size() > 15)
@@ -443,11 +443,11 @@ const cipher_block_t<AES_BLOCK_SIZE> offset0_from_nonce(uint32_t iter,
     std::cout << "nonce for tag computation of final empty chunk: " << Botan::hex_encode(nonce) << std::endl;
 
 
-    cipher_block_t<AES_BLOCK_SIZE> F_0 = offset0_from_nonce(
+    cipher_block_t<AES_BLOCK_SIZE> G_0 = offset0_from_nonce(
         iter, ctl, vec_ct, pkesk, session_key, decr_params, msg_file_path, nonce.data(), nonce.size());
-    std::cout << std::format("F_0 for encryption: {}\n", F_0.hex());
+    std::cout << std::format("G_0 for encryption: {}\n", G_0.hex());
     cipher_block_t<AES_BLOCK_SIZE> F0_xor_Ldollar(l_computer.dollar());
-    F0_xor_Ldollar ^= F_0;
+    F0_xor_Ldollar ^= G_0;
 
     cipher_block_vec_t<AES_BLOCK_SIZE> ct_F0_Ldollar;
     ct_F0_Ldollar.push_back(F0_xor_Ldollar);
