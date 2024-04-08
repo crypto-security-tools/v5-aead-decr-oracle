@@ -74,7 +74,7 @@ class aead_packet_t : public packet_t
         return m_chunk_size_octet;
     }
 
-    inline void rewrite_chunk(aead_chunk_t const& chunk, uint32_t chunk_idx)
+    inline void rewrite_chunk(aead_chunk_t const& chunk, size_t chunk_idx)
     {
         if(chunk_idx > m_chunks.size())
         {

