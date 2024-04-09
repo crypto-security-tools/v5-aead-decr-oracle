@@ -140,7 +140,7 @@ std::vector<uint8_t> determine_add_data_for_chunk(aead_packet_t const& aead,
     return result;
 }
 
-const cipher_block_t<AES_BLOCK_SIZE> offset0_from_nonce(uint32_t iter,
+const cipher_block_t<AES_BLOCK_SIZE> offset0_from_nonce_using_ecb_oracle(uint32_t iter,
                                               run_time_ctrl_t ctl,
                                               // vector_cfb_ciphertext_t const& vec_ct,
                                               vector_ct_t& vec_ct,
@@ -448,7 +448,8 @@ const cipher_block_t<AES_BLOCK_SIZE> offset0_from_nonce(uint32_t iter,
     cipher_block_t<AES_BLOCK_SIZE> new_pt_block_ws(aes_block_filled_with_whitespace);
     //cipher_block_vec_t<AES_BLOCK_SIZE> new_chunk_ct;
 
-    cipher_block_t<AES_BLOCK_SIZE> G_0 = offset0_from_nonce(
+    // inovkes the ECB-oracle:
+    cipher_block_t<AES_BLOCK_SIZE> G_0 = offset0_from_nonce_using_ecb_oracle(
         iter, ctl, vec_ct, pkesk, session_key, decr_params, msg_file_path, nonce.data(), nonce.size());
     std::cout << std::format("G_0 for encryption: {}\n", G_0.hex());
 
