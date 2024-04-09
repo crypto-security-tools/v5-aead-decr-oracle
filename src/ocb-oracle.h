@@ -38,7 +38,7 @@ std::vector<uint8_t> determine_add_data_for_chunk(aead_packet_t const& aead, uin
  * @param aead_packet the AEAD packet to be attacked
  * @param encrypted_zero_block the encryption result for the zero block from the initial query
  */
-void ocb_attack_remove_final_chunk(uint32_t iter,
+void ocb_attack_replace_final_chunk(uint32_t iter,
                                        run_time_ctrl_t ctl,
                                        // vector_cfb_ciphertext_t const& vec_ct,
                                        vector_ct_t& vec_ct,

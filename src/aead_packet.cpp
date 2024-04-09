@@ -1,6 +1,7 @@
 
 
 #include "aead_packet.h"
+#include "botan/hex.h"
 #include "except.h"
 #include <algorithm>
 #include <format>
@@ -144,7 +145,7 @@ uint32_t aead_packet_t::plaintext_size() const
 std::string aead_packet_t::to_string() const
 {
     std::string result = std::format(
-        "AEAD packet\n  aead-type: {}\n  cipher = {}\n  chunk size: {}\n  overall plaintext size: {}\n  #chunks: {}",
+        "AEAD packet\n  aead-type: {}\n  cipher = {}\n  chunk size: {}\n  overall plaintext size: {}\n  #chunks: {}\n",
         aead_type_to_string(m_aead_type),
         cipher_to_string(m_cipher),
         chunk_size(),
@@ -155,7 +156,9 @@ std::string aead_packet_t::to_string() const
     {
         result += std::format(" chunk #{}:\n", cnt++);
         result += std::format(
-            "     encrypted size: {}\n    auth tag size: {}\n ", chunk.encrypted.size(), chunk.auth_tag.size());
+            "     encrypted size: {}\n     auth tag size: {}\n ", chunk.encrypted.size(), chunk.auth_tag.size());
+        result += std::format(
+            "     encrypted = {}\n      auth tag = {}\n", Botan::hex_encode(chunk.encrypted), Botan::hex_encode(chunk.auth_tag));
     }
     return result;
 }
