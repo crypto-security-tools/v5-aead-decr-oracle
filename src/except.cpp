@@ -64,3 +64,20 @@ test_exception_t::test_exception_t(const char* prefix, const std::string& msg)
     : Exception(std::string(prefix) + " " + msg)
 {
 }
+
+
+attack_exception_t::~attack_exception_t() {};
+
+attack_exception_t::attack_exception_t(const std::string& msg) : Exception(msg)
+{
+}
+
+attack_exception_t::attack_exception_t(const std::string& msg, const std::exception& e)
+    : Exception(msg + " failed with " + std::string(e.what()))
+{
+}
+
+attack_exception_t::attack_exception_t(const char* prefix, const std::string& msg)
+    : Exception(std::string(prefix) + " " + msg)
+{
+}

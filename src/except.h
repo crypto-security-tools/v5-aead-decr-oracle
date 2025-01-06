@@ -58,4 +58,17 @@ class test_exception_t : public Exception
 
 };
 
+
+class attack_exception_t : public Exception 
+{
+  public:
+    attack_exception_t(const char* prefix, const std::string& msg);
+    explicit attack_exception_t(const std::string& msg);
+    virtual ~attack_exception_t();
+
+  protected:
+    attack_exception_t(const std::string& msg, const std::exception& e);
+
+};
+
 #endif /* _EXCEPT_H */
