@@ -412,6 +412,8 @@ void attack_cmd(args::Subparser& parser)
             decr_params_copy.ct_filename_or_data = tmp_msg_file_path;
             auto encrypted_zero_block = recovered_blocks[0];
             std::cout << "starting OCB final chunk removal attack ...\n";
+            try 
+            {
             ocb_attack_replace_final_chunk(i,
                                               rtc,
                                               decr_result_set.vector_ciphertext,
@@ -421,6 +423,12 @@ void attack_cmd(args::Subparser& parser)
                                               encrypted_zero_block,
                                               decr_params_copy,
                                               tmp_msg_file_path);
+            }
+            catch (attack_exception_t const& e)
+            {
+                std::cout << "aborting this iteration due to an attack_exception_t: " << e.what() << std::endl;
+                continue;
+            }
         }
     }
     std::cout << std::format("\n\n{} from {} decryptions returned non-empty decryption results.\n",

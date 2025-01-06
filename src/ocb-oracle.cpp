@@ -263,7 +263,6 @@ const cipher_block_t<AES_BLOCK_SIZE> offset0_from_nonce_using_ecb_oracle(uint32_
 
 void ocb_attack_replace_final_chunk(uint32_t iter,
                                     run_time_ctrl_t ctl,
-                                    // vector_cfb_ciphertext_t const& vec_ct,
                                     vector_ct_t& vec_ct,
                                     std::span<const uint8_t> pkesk,
                                     std::span<const uint8_t> session_key,
@@ -507,7 +506,7 @@ DC1B34FF456570530CA9D2EAC9CF86C5 B428E05A0970FF4DF7161FC62BCEFEEA
                              msg_file_path);
     if (ecb_encrypted_oracle_ct.size() != 1 + Pi_xor_Gi.size())
     {
-        throw Exception(
+        throw attack_exception_t(
             std::format("unexptected block count of {} for oracle decryption result for oracle decryption result",
                         ecb_encrypted_oracle_ct.size()));
     }
