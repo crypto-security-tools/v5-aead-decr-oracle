@@ -22,7 +22,7 @@
 #include <cstdint>
 
 #include <botan/block_cipher.h>
-#include <botan/internal/poly_dbl.h>
+#include "poly_dbl.h"
 
 /**
  * If top bit of arg is set, return ~0. Otherwise return 0.
