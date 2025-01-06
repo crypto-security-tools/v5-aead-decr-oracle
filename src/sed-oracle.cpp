@@ -521,7 +521,7 @@ std::vector<uint8_t> invoke_cfb_opgp_decr_with_vec_ct(
     // if (vec_ct.nb_oracle_blocks < oracle_ciphertext_blocks.size())
     if (vec_ct.oracle_blocks_capacity() < oracle_ciphertext_blocks.size())
     {
-        throw Exception("vector ciphertext's oracle block capacity is too small for the payload");
+        throw attack_exception_t("vector ciphertext's oracle block capacity is too small for the payload");
     }
     
     vec_ct.set_oracle_pattern(oracle_ciphertext_blocks);
