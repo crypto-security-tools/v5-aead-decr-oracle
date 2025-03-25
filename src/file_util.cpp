@@ -40,7 +40,7 @@ void write_binary_file(std::span<const uint8_t> data, std::string const& file_pa
         throw Exception("could not open file for writing at " + file_path);
     }
 
-    myfile.write((char*)&data[0], data.size());
+    myfile.write(reinterpret_cast<const char*>(&data[0]), static_cast<signed>(data.size()));
     myfile.close();
 }
 
