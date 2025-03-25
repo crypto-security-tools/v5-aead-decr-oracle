@@ -548,9 +548,9 @@ DC1B34FF456570530CA9D2EAC9CF86C5 B428E05A0970FF4DF7161FC62BCEFEEA
 
     auto encoded_mod_aead_packet = mod_aead_packet.get_encoded();
     ctl.potentially_write_run_time_file(encoded_mod_aead_packet,
-                                        std::format("{}-aead-packet-with-final-chunk-removed", iter));
+                                        std::format("{}-aead-packet-with-final-chunk-replaced", iter));
     std::vector<uint8_t> mod_msg(pkesk.begin(), pkesk.end());
     mod_msg.insert(mod_msg.end(), encoded_mod_aead_packet.begin(), encoded_mod_aead_packet.end());
     ctl.potentially_write_run_time_file(mod_msg,
-                                        std::format("{}-pkesk-then-aead-packet-with-final-chunk-removed", iter));
+                                        std::format("{}-pkesk-then-aead-packet-with-final-chunk-replaced", iter));
 }

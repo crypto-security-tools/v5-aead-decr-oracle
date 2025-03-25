@@ -541,8 +541,8 @@ int main(int argc, char* argv[])
         &parse_packet_cmd);
     args::Command decrypt_with_app(
         commands, "invoke-decr", "invoke the decryption of a pgp message", &invoke_decryption_cmd);
-    args::Command decryption_of_random_blocks(
-        commands, "decr-rnd", "invoke the decryption of random data as the SED packet in a gpg message", &attack_cmd);
+    args::Command replace_chunk_attack(
+        commands, "replace-chunk", "conduct an attack that replaces the next to last chunk with whitespaces", &attack_cmd);
 
     args::Command check_pattern_rep_in_cfb_plaintext(
         commands,
