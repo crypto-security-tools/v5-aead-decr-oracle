@@ -7,7 +7,7 @@
 #ifndef BOTAN_POLY_DBL_H_
 #define BOTAN_POLY_DBL_H_
 
-#include <botan/types.h>
+#include "botan/types.h"
 
 namespace Botan {
 

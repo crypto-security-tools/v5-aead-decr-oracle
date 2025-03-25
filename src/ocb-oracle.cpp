@@ -13,7 +13,7 @@
  * OCB Mode
  * (C) 2013,2017 Jack Lloyd
  * (C) 2016 Daniel Neus, Rohde & Schwarz Cybersecurity
- * (C) 2024 Falko Strenzke
+ * (C) 2024,2025 Falko Strenzke
  *
  * Botan is released under the Simplified BSD License (see license.txt)
  */
@@ -80,7 +80,7 @@ std::vector<uint8_t> determine_nonce_for_aead_chunk(aead_packet_t const& aead,
     uint64_t index = chunk_idx;
     switch (aead.aead_type())
     {
-        // code take from RNP, specification for OCB missing in draft-koch
+        // code taken from RNP, specification for OCB missing in draft-koch
         case aead_type_e::ocb:
             for (int i = 14; (i >= 0) && index; i--)
             {
@@ -142,7 +142,6 @@ std::vector<uint8_t> determine_add_data_for_chunk(aead_packet_t const& aead,
 
 const cipher_block_t<AES_BLOCK_SIZE> offset0_from_nonce_using_ecb_oracle(uint32_t iter,
                                                                          run_time_ctrl_t ctl,
-                                                                         // vector_cfb_ciphertext_t const& vec_ct,
                                                                          vector_ct_t& vec_ct,
                                                                          std::span<const uint8_t> pkesk,
                                                                          std::span<const uint8_t> session_key,
@@ -163,7 +162,6 @@ const cipher_block_t<AES_BLOCK_SIZE> offset0_from_nonce_using_ecb_oracle(uint32_
     const uint8_t BOTTOM_MASK = static_cast<uint8_t>((static_cast<uint16_t>(1) << MASKLEN) - 1);
 
     nonce_buf.resize(BS);
-    // clear_mem(&nonce_buf[0], nonce_buf.size());
 
     memcpy(&nonce_buf[BS - nonce_len], nonce, nonce_len);
     nonce_buf[0] = static_cast<uint8_t>(((tag_size * 8) % (BS * 8)) << (BS <= 16 ? 1 : 0));
@@ -173,14 +171,9 @@ const cipher_block_t<AES_BLOCK_SIZE> offset0_from_nonce_using_ecb_oracle(uint32_
     const uint8_t bottom = nonce_buf[BS - 1] & BOTTOM_MASK; // q
     nonce_buf[BS - 1] &= ~BOTTOM_MASK;
 
-    // const bool need_new_stretch = (m_last_nonce != nonce_buf);
     const bool need_new_stretch = true;
     if (need_new_stretch)
     {
-        // m_last_nonce = nonce_buf;
-
-        // m_cipher->encrypt(nonce_buf);
-
 
         cipher_block_vec_t<AES_BLOCK_SIZE> oracle_ciphertext_blocks;
         oracle_ciphertext_blocks.push_back(nonce_buf);
@@ -226,21 +219,6 @@ const cipher_block_t<AES_BLOCK_SIZE> offset0_from_nonce_using_ecb_oracle(uint32_
                 nonce_buf.push_back(nonce_buf[i] ^ nonce_buf[i + 1]);
             }
         }
-#if 0
-       else if(BS == 24) {
-         for(size_t i = 0; i != 16; ++i) {
-            nonce_buf.push_back(nonce_buf[i] ^ nonce_buf[i + 5]);
-         }
-      } else if(BS == 32) {
-         for(size_t i = 0; i != BS; ++i) {
-            nonce_buf.push_back(nonce_buf[i] ^ (nonce_buf[i] << 1) ^ (nonce_buf[i + 1] >> 7));
-         }
-      } else if(BS == 64) {
-         for(size_t i = 0; i != BS / 2; ++i) {
-            nonce_buf.push_back(nonce_buf[i] ^ nonce_buf[i + 22]);
-         }
-      }
-#endif
 
         stretch = nonce_buf;
     }
@@ -313,10 +291,6 @@ void ocb_attack_replace_final_chunk(uint32_t iter,
     L_computer l_computer(encrypted_zero_block);
 
     aead_packet_t mod_aead_packet(aead_packet);
-    // auto stripped_chunks = aead_packet.aead_chunks();
-    /*stripped_chunks.pop_back();
-    stripped_chunks.pop_back();*/
-    // mod_aead_packet.set_chunks(stripped_chunks);
 
     std::vector<uint8_t> add_data_final_real_mod =
         determine_add_data_for_chunk(mod_aead_packet, mod_aead_packet.aead_chunks().size() - 2, false);
@@ -469,25 +443,10 @@ void ocb_attack_replace_final_chunk(uint32_t iter,
     }
     std::cout << std::format("Pi_xor_Gi = {}\n", Pi_xor_Gi.hex());
 
-    /**
-     * Pi_xor_Gi is     = 122E0BA4904AF43BEFB9E717A06F449B A637E1F6364033B492660181D16FF8CF
-     * FC3B14DF654550732C89F2CAE9EFA6E5 9408C07A2950DF6DD7363FE60BEEDECA ✓ Pi_xor_Gi should =
-     * 122E0BA4904AF43BEFB9E717A06F449B A637E1F6364033B492660181D16FF8CF FC3B14DF654550732C89F2CAE9EFA6E5
-     * 9408C07A2950DF6DD7363FE60BEEDECA
-     *
-     */
     cipher_block_t<AES_BLOCK_SIZE> Gn_xor_Ldollar(l_computer.dollar());
     Gn_xor_Ldollar ^= G_i;
 
     std::cout << std::format("encryption offsets (G) = {}\n", Gi_from_1.hex());
-    /*
-     * actual: encryption offsets (G) = 320E2B84B06AD41BCF99C737804F64BB 8617C1D616601394B24621A1F14FD8EF
-DC1B34FF456570530CA9D2EAC9CF86C5 B428E05A0970FF4DF7161FC62BCEFEEA ✓
-     * = should be:
-encryption offsets (G) = 320E2B84B06AD41BCF99C737804F64BB 8617C1D616601394B24621A1F14FD8EF
-DC1B34FF456570530CA9D2EAC9CF86C5 B428E05A0970FF4DF7161FC62BCEFEEA
-     *
-     */
 
     cipher_block_vec_t<AES_BLOCK_SIZE> ct_for_oracle; // n = 0 for now
     std::cout << std::format("plaintext sum s_n = {}\n", s_i.hex());
@@ -532,16 +491,6 @@ DC1B34FF456570530CA9D2EAC9CF86C5 B428E05A0970FF4DF7161FC62BCEFEEA
     std::cout << std::format("  tag = {}\n  encrypted = {}\n",
                              Botan::hex_encode(new_last_real_chunk.auth_tag),
                              Botan::hex_encode(new_last_real_chunk.encrypted));
-
-    /*
-     * from scratch calculation:
-     * computed modified final auth tag: 265DF7E0814BF93862069B676ED04744 ✓
-     * computed modified final ciphertext:
-     * 8D2A9176DDEAFF22573D4507CAE463F4A8CB1CAAE5919C7298BD7F890EA1C9B9448B9696A52050F27211B7722C40F44C2E31EE1D36044890A09AA16AE9CAF797
-     * actually computed in attack:
-     * 8D2A9176DDEAFF22573D4507CAE463F4A8CB1CAAE5919C7298BD7F890EA1C9B9448B9696A52050F27211B7722C40F44C2E31EE1D36044890A09AA16AE9CAF797
-     * ✓
-     */
 
     mod_aead_packet.rewrite_chunk(new_last_real_chunk, mod_aead_packet.aead_chunks().size() - 2);
     std::cout << std::format("mod. AEAD packet = {}\n", mod_aead_packet.to_string());

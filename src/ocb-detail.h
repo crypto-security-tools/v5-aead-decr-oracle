@@ -21,7 +21,7 @@
 #include <type_traits>
 #include <cstdint>
 
-#include <botan/block_cipher.h>
+#include "botan/block_cipher.h"
 #include "poly_dbl.h"
 
 /**
@@ -100,7 +100,6 @@ class L_computer final
         : m_BS(encrypted_zero_block.size()), m_max_blocks(10000)
     { // arbitrary high value for m_max_blocks
         m_L_star.assign(encrypted_zero_block.begin(), encrypted_zero_block.end());
-        // cipher.encrypt(m_L_star);
         m_L_dollar = poly_double(star());
         m_L.push_back(poly_double(dollar()));
 

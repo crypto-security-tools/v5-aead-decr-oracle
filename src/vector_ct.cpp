@@ -92,9 +92,7 @@ std::vector<uint8_t> vector_ct_base_t::serialize() const
     {
         throw Exception("assertion failure for first step ct");
     }
-    // std::cout << std::format("serialize: 1st-step-ct: {}\n", Botan::hex_encode(result));
     cipher_block::append_cb_vec_to_uint8_vec(m_leading_random_blocks, result);
-    // std::cout << std::format("serialize: + leading random: {}\n", Botan::hex_encode(result));
 
     cipher_block_vec_t<V5AA_CIPH_BLOCK_SIZE> oracle_blocks_encoded = oracle_blocks_pattern_expanded_and_repeated();
     cipher_block::append_cb_vec_to_uint8_vec(oracle_blocks_encoded, result);
@@ -113,7 +111,7 @@ cipher_block_vec_t<AES_BLOCK_SIZE> vector_ct_t::recover_ecb_from_cfb_decr(
     {
         cipher_block_vec_t<AES_BLOCK_SIZE> result;
         cipher_block_vec_t<AES_BLOCK_SIZE> candidate_raw_ecb = recover_ecb_encryption_for_arbitrary_length_rep_pattern(
-            cfb_decryption_result, this->m_offs_of_oracle_blocks_into_decr_result, this, session_key, ct_block_offs);
+            cfb_decryption_result, this->m_offs_of_oracle_blocks_into_decr_result, this, ct_block_offs);
         std::cout << std::format("vector_ct_t::recover_ecb_from_cfb_decr(): checking block offset = {}\n", ct_block_offs);
         std::cout << std::format("vector_ct_t::recover_ecb_from_cfb_decr(): checking candidate for pattern repetition: {}\n", candidate_raw_ecb.hex());
         size_t pattern_reps = nb_detected_block_pattern_reps(candidate_raw_ecb, this->m_oracle_blocks_single_pattern.size() );
@@ -141,12 +139,8 @@ cipher_block_vec_t<AES_BLOCK_SIZE> vector_ct_t::recover_ecb_from_cfb_decr(
 
         if (session_key.size() > 0)
         {
-            /*cipher_block_vec_t<V5AA_CIPH_BLOCK_SIZE> oracle_blocks_rot;
-            oracle_blocks_rot.assign(m_oracle_blocks_single_pattern.begin() + ct_block_offs,m_oracle_blocks_single_pattern.end());
-            oracle_blocks_rot.insert(oracle_blocks_rot.end(), m_oracle_blocks_single_pattern.begin(), m_oracle_blocks_single_pattern.begin() + ct_block_offs);
-            auto actual_ecb_encrypted = ecb_encrypt_blocks(std::span(session_key), oracle_blocks_rot);*/
+            
             auto actual_ecb_encrypted = ecb_encrypt_blocks(std::span(session_key), m_oracle_blocks_single_pattern);
-            //if (actual_ecb_encrypted != ecb_encrypted)
             if ( actual_ecb_encrypted != result)
             {
                 std::cout << std::format("actual_ecb_encrypted = {}\n", actual_ecb_encrypted.hex());

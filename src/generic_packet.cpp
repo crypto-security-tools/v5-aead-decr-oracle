@@ -69,7 +69,7 @@ static std::vector<uint8_t> read_length_and_consume_content(uint8_t real_packet_
             ensure_min_rem_octets(1, encoded);
             uint8_t lo_2 = encoded[0];
             encoded.pop_front();
-            packet_length = ((lo_1 - 192) << 8) + (lo_2) + 192;
+            packet_length = (static_cast<uint64_t>((lo_1 - 192)) << 8) + (lo_2) + 192;
         }
         else if (lo_1 == 255)
         {
@@ -79,7 +79,7 @@ static std::vector<uint8_t> read_length_and_consume_content(uint8_t real_packet_
             uint8_t lo_3  = encoded[1];
             uint8_t lo_4  = encoded[2];
             uint8_t lo_5  = encoded[3];
-            packet_length = (lo_2 << 24) | (lo_3 << 16) | (lo_4 << 8) | lo_5;
+            packet_length = (static_cast<uint64_t>(lo_2 << 24)) | static_cast<uint64_t>((lo_3 << 16)) | static_cast<uint64_t>((lo_4 << 8)) | lo_5;
 
             encoded.erase(encoded.begin(), encoded.begin() + 4);
         }
@@ -88,7 +88,7 @@ static std::vector<uint8_t> read_length_and_consume_content(uint8_t real_packet_
             is_partial_length_header = true;
             packet_length            = 1 << (lo_1 & 0x1F);
             nb_len_octets            = 1;
-            // the subsequent headers only feature a lenth, not a tag octet: see stream_read_partial_chunk_len() in
+            // the subsequent headers only feature a length, not a tag octet: see stream_read_partial_chunk_len() in
             // RNP's stream-packet.cpp .
             // "the last length header in this sequence must not be a partial one" (how can a partial header be the last
             // one? it cannot specify a zero length!)
@@ -102,7 +102,6 @@ static std::vector<uint8_t> read_length_and_consume_content(uint8_t real_packet_
                 partial_header_invalid = true;
             }
 
-            //result += "|";
             if (partial_header_invalid)
             {
                 // write the error but try to continue as this is not fatal
@@ -113,7 +112,6 @@ static std::vector<uint8_t> read_length_and_consume_content(uint8_t real_packet_
     }
     else // old format packet length
     {
-        // nb_len_octets   =
         std::cerr << "legacy_len_spec = " << static_cast<unsigned>(legacy_len_spec) << std::endl;
         switch (legacy_len_spec)
         {
@@ -131,7 +129,7 @@ static std::vector<uint8_t> read_length_and_consume_content(uint8_t real_packet_
                 ensure_min_rem_octets(nb_len_octets, encoded);
                 std::cerr << "2 len octets = " << static_cast<unsigned>(encoded[0]) << ", "
                           << static_cast<unsigned>(encoded[1]) << std::endl;
-                packet_length = encoded[0] << 8 | encoded[1];
+                packet_length = static_cast<uint64_t>(encoded[0] << 8) | encoded[1];
                 encoded.erase(encoded.begin(), encoded.begin() + 2);
                 break;
             }
@@ -139,7 +137,7 @@ static std::vector<uint8_t> read_length_and_consume_content(uint8_t real_packet_
             {
                 nb_len_octets = 4;
                 ensure_min_rem_octets(nb_len_octets, encoded);
-                packet_length = encoded[0] << 24 | encoded[1] << 16 | encoded[2] << 8 | encoded[3];
+                packet_length = static_cast<uint64_t>(encoded[0] << 24) | static_cast<uint64_t>(encoded[1] << 16) | static_cast<uint64_t>(encoded[2] << 8) | encoded[3];
                 encoded.erase(encoded.begin(), encoded.begin() + 4);
                 break;
             }
@@ -152,12 +150,11 @@ static std::vector<uint8_t> read_length_and_consume_content(uint8_t real_packet_
             }
         };
     }
-    std::cerr << "packet length = " << packet_length << std::endl;
-    //std::string packet_details;
+    //std::cerr << "packet length = " << packet_length << std::endl;
     if (encoded.size() >= packet_length)
     {
-        result.insert(result.end(), encoded.begin(), encoded.begin() + packet_length);
-        encoded.erase(encoded.begin(), encoded.begin() + packet_length);
+        result.insert(result.end(), encoded.begin(), encoded.begin() + static_cast<long>(packet_length));
+        encoded.erase(encoded.begin(), encoded.begin() + static_cast<long>(packet_length));
     }
     else
     {
@@ -174,9 +171,6 @@ static std::vector<uint8_t> read_length_and_consume_content(uint8_t real_packet_
         result.insert(result.end(), new_part.begin(), new_part.end()); 
         return result;
     }
-    // encoded.erase(encoded.begin(), encoded.begin() + packet_length);
-    //result += std::format(" body length: {}", packet_length);
-    //result += "\n" + packet_details;
     return result;
 }
 
@@ -189,11 +183,9 @@ packet_sequence_t parse_packet_sequence(std::vector<uint8_t> const& encoded_vec)
     while (encoded.size())
     {
         using namespace packet;
-        //result += " | ";
         uint8_t encoded_tag = encoded[0];
         encoded.pop_front();
         uint8_t real_packet_tag = 0;
-        bool is_indet_len       = false;
         uint8_t legacy_len_spec = 0;
         if (!(encoded_tag & 0x80))
         {
@@ -207,13 +199,11 @@ packet_sequence_t parse_packet_sequence(std::vector<uint8_t> const& encoded_vec)
         {
             format          = header_format_e::new_form;
             real_packet_tag = encoded_tag & ~(0xc0);
-            //std::cerr << "new format header" << std::endl;
         }
         else
         {
             real_packet_tag = (encoded_tag >> 2) & 0x0F;
             legacy_len_spec = encoded_tag & 0x03;
-            //std::cerr << "old format header" << std::endl;
         }
         if (!is_valid_packet_tag(real_packet_tag))
         {

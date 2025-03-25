@@ -143,7 +143,6 @@ cipher_block_vec_t<AES_BLOCK_SIZE> recover_ecb_encryption_for_arbitrary_length_r
     std::span<const uint8_t> cfb_decryption_result,
     uint32_t offset_of_rep_in_decr_res,
     vector_ct_base_t const* query_ct,
-    std::span<const uint8_t> session_key,
     uint32_t ciphertext_block_offset = 0 
     );
 

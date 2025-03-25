@@ -59,11 +59,16 @@ class packet_t
         return m_raw_tag;
     }
 
-    inline uint32_t body_length() const
+    inline uint64_t body_length() const
     {
         return packet_contents().size();
     }
     virtual std::string to_string() const = 0;
+
+    inline uint8_t raw_tag_uns() const
+    {
+        return static_cast<uint8_t>(m_raw_tag);
+    }
 
   protected:
     virtual std::vector<uint8_t> packet_contents() const = 0;

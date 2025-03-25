@@ -42,13 +42,11 @@ std::vector<uint8_t> openpgp_cfb_decryption_sim(std::span<const uint8_t> ciphert
     }
     dec->set_key(key);
     dec->start(zero_iv);
-    // std::cout << "decrypting ciphertext 1 of 2..." << std::endl;
     dec->finish(first_ct);
 
     std::vector<uint8_t> iv_for_2nd_ct(&first_ct[2], &first_ct[2 + block_size]);
     dec->set_key(key);
     dec->start(iv_for_2nd_ct);
-    // std::cout << "decrypting ciphertext 2 of 2..." << std::endl;
     dec->finish(second_ct);
     return second_ct;
 }

@@ -122,93 +122,6 @@ void invoke_decryption_cmd(args::Subparser& parser)
     std::cout << hex << std::endl << std::endl;
 }
 
-#if 0
-void query_oracle_for_file_cmd(args::Subparser& parser)
-{
-
-
-    args::ValueFlag<std::string> input_data_file_arg(
-        parser,
-        "FILE",
-        "path to file to parse, must contain raw binary data, ASCII armour not supported",
-        {'i', cli_args::input_data_file},
-        args::Options::Required);
-
-
-
-    args::ValueFlag<std::string> tmp_dir_arg(parser,
-                                             "FILE",
-                                             "path to the temporary working directory where the OpenPGP input message "
-                                             "for the tested application is placed. Defaults to /tmp "
-                                             "should be a tmpfs for performance reasons.",
-                                             {cli_args::tmp_msg_file_dir},
-                                             "/tmp");
-
-    args::ValueFlag<std::string> session_key_arg(
-        parser,
-        "HEX",
-        "optional: the session key in hexadecimal encoding. If provided, and run time data logging is used, then also "
-        "the plaintext of the successfully decrypted packets will be written to the run-time directory.",
-        {'k', cli_args::session_key});
-
-
-    auto run_time_data_log_dir_arg_up =
-        value_flag_from_args_info<std::string>(parser, cli_args::run_time_data_log_dir_info);
-
-    parser.Parse();
-
-
-
-    std::string session_key_hex = args::get(session_key_arg);
-    std::vector<uint8_t> session_key;
-    if (session_key_hex.size() > 0)
-    {
-        session_key = Botan::hex_decode(session_key_hex.data(), session_key_hex.data() + session_key_hex.size());
-    }
-
-
-    std::filesystem::path tmp_msg_file_dir  = args::get(tmp_dir_arg);
-    std::filesystem::path tmp_msg_file_path = tmp_msg_file_dir / "opgp_att_msg.bin";
-
-    std::filesystem::path input_data_file_path = args::get(input_data_file_arg);
-
-    auto input_data = read_binary_file(input_data_file_path);
-    std::vector<uint8_t> query_blocks;
-
-
-    std::filesystem::path run_time_log_dir_path = args::get(*run_time_data_log_dir_arg_up);
-
-    run_time_ctrl_t rtc(run_time_log_dir_path);
-
-   openpgp_app_decr_params_t decr_params ( {.app_type = openpgp_app_e::gnupg, .ct_filename_or_data = input_data_file_path }); 
-        auto decryption_result = invoke_cfb_opgp_decr(decr_params);
-
-        std::cout << std::format("decryption result with size {}\n", decryption_result.size());
-#if 0
-        auto recovered_blocks = oracle_blocks_recovery_from_cfb_decryption_result(
-            decryption_result, nb_blocks_in_single_query_sequence, second_step_ct);
-        if (decr_result.size() > 0)
-        {
-            count_non_empty_decryption_results++;
-        }
-        if(recovered_blocks.size() > 0)
-        {
-            std::cout << std::format("recovered oracle data of size {}\n", recovered_blocks.size());
-            count_non_empty_recovered_blocks++;
-        }
-        try
-        {
-            std::filesystem::remove(tmp_msg_file_path);
-        }
-        catch (...)
-        {
-            std::cerr << std::format("error deleting tmp message file at {}\n", std::string(tmp_msg_file_path));
-        }
-#endif
-    
-}
-#endif
-
 void check_pattern_rep_in_cfb_plaintext_cmd(args::Subparser& parser)
 {
 
@@ -249,15 +162,6 @@ void attack_cmd(args::Subparser& parser)
         "the generated SED packet. The PKESK must be in raw binary format, not ASCII-armored.",
         {'u', cli_args::reused_pkesk},
         args::Options::Required | args::Options::Single);
-
-    /*args::ValueFlag<std::string> file_with_query_data_arg(
-        parser,
-        "FILE",
-        "path to a file containing the blocks to be AES-decrypted in binary format. The file length must be a multiple "
-        "of 16 bytes.",
-        {"file-with-query-data"},
-        args::Options::Single);*/
-
 
     args::ValueFlag<std::string> aead_packet_file_arg(
         parser,
@@ -318,14 +222,6 @@ void attack_cmd(args::Subparser& parser)
     std::filesystem::path tmp_msg_file_dir  = args::get(tmp_dir_arg);
     std::filesystem::path tmp_msg_file_path = tmp_msg_file_dir / "opgp_att_msg.bin";
 
-    // const unsigned block_size = 16;
-
-    /*if (file_with_aead_packet == "" && query_data_repetitions == 0)
-    {
-        throw cli_exception_t(
-            "must provide --query-repeat-count with a positive (non-zero) value if a query data file is specified");
-    }*/
-
     aead_packet_t* aead_packet = nullptr;
     packet_sequence_t all_packets;
     if (aead_packet_file_arg)
@@ -355,7 +251,6 @@ void attack_cmd(args::Subparser& parser)
 
     std::vector<uint8_t> query_data(AES_BLOCK_SIZE); // zero block
 
-    // size_t nb_blocks_in_query_data_pattern = query_data.size();
     if (query_data.size() * query_data_repetitions > 100 * 1000 * 1000)
     {
         throw Exception("trying to create query data of more than 100 MB, this is prohibited");
@@ -436,11 +331,6 @@ void attack_cmd(args::Subparser& parser)
                              iterations);
     std::cout << std::format("For {} decryptions the oracle data was recovered.\n", count_non_empty_recovered_blocks);
 }
-
-/*
-void oracle_encr_zero_block_cmd(args::Subparser& parser)
-{
-}*/
 
 void create_sedp_cmd(args::Subparser& parser)
 {

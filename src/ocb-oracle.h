@@ -40,7 +40,6 @@ std::vector<uint8_t> determine_add_data_for_chunk(aead_packet_t const& aead, uin
  */
 void ocb_attack_replace_final_chunk(uint32_t iter,
                                        run_time_ctrl_t ctl,
-                                       // vector_cfb_ciphertext_t const& vec_ct,
                                        vector_ct_t& vec_ct,
                                        std::span<const uint8_t> pkesk,
                                        std::span<const uint8_t> session_key,
