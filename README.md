@@ -13,7 +13,7 @@ The following prerequisites have to be installed and the corresponding CMake var
 | ---            | --                                              | -----                                    | ---                                                                                           |
 | Botan 3        | https://github.com/randombit/botan              | 3bee7a12a750c50a90d8147fa2d38c707b032592 | BOTAN_INCLUDE_DIR: set to `.../botan/build/include/public`, BOTAN_LIB_DIR: set to `.../botan` |
 | args           | https://github.com/Taywee/args                  | b7d67237e8bdaa517d7fd6e4e84e1f6efa24f8c5 | TARGS_INCLUDE_DIR: set to `.../args`                                                          |
-| cpp-subprocess | https://github.com/arun11299/cpp-subprocess.git | af23f338801ed19696da42b1f9b97f8e21dec5d6 | CPP_SUBPROCESS_INCLUDE_DIR: `.../cpp-subprocess`                                              |
+| cpp-subprocess | https://github.com/arun11299/cpp-subprocess.git | af23f338801ed19696da42b1f9b97f8e21dec5d6 | CPP_SUBPROCESS_INCLUDE_DIR: set to `.../cpp-subprocess`                                       |
 
 Afterwards the tool can be built with CMake.
 
@@ -86,3 +86,7 @@ The expected output is
     ```
 
 The content of the next-to-final chunk has been replaced with whitespaces.
+
+# License
+
+If not otherwise noted in the source code files, they are under Apache License v2 (see file `LICENSE`). The files adopted from Botan are under the Botan license (see file `botan_license.txt`).
