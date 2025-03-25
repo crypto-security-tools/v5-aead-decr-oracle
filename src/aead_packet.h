@@ -133,7 +133,6 @@ class aead_packet_t : public packet_t
     cipher_e m_cipher;
     std::vector<uint8_t> m_iv;
     uint8_t m_chunk_size_octet;
-    //std::vector<uint8_t> m_ciphertext;
     std::vector<aead_chunk_t> m_chunks;
     std::vector<uint8_t> m_final_auth_tag;
 };

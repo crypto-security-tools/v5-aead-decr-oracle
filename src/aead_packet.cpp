@@ -23,7 +23,6 @@ std::vector<aead_chunk_t> whole_ciphertext_excluding_final_tag_to_aead_chunks(st
     }
     while (i < whole_ciphertext.size()) // we want to leave the auth tag of the final chunk without data
     {
-        size_t rem_len = whole_ciphertext.size() - i;
         
         size_t this_chunk_size_plus_auth_tag =
             std::min(static_cast<size_t>(chunk_size + auth_tag_size), whole_ciphertext.size() - i); 
