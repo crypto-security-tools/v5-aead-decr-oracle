@@ -65,7 +65,7 @@ Change into the CMake build directory and execute the command
 ./v5-aead-attack replace-chunk -u ../artifacts/doc.aead.ocb.small-chunks-with-key-FFE671A89D964808EB47EB2D956EEF7B8EF5660D9425750ECC94038C8E7AC914-no-compression.pkesk.bin --iterations=100 --data-log-dir=run_time -kFFE671A89D964808EB47EB2D956EEF7B8EF5660D9425750ECC94038C8E7AC914 --nb-leading-random-bytes=256  --query-repeat-count=100 --file-with-aead-packet ../artifacts/doc.aead.ocb.small-chunks-with-key-FFE671A89D964808EB47EB2D956EEF7B8EF5660D9425750ECC94038C8E7AC914-no-compression.gpg.bin
 ```
 Here, the specification of the session key with `-kFFE671A89D964808EB47EB2D956EEF7B8EF5660D9425750ECC94038C8E7AC914` that was determined in the previous step is optional.
-It is used to detect some rare errors that can lead to a false success that will lead to failure of the attack. Remove this argument to execute the attack under realistic conditions.
+It is used to detect some rare errors that can lead to a false detection of a repeated pattern in the decryption result that will lead to failure of the attack. Remove this argument to execute the attack under realistic conditions.
 
 You will see a lot of output and possibly password entry requests in case you have password protected keys in the key ring that is used. 
 
