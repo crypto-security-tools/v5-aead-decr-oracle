@@ -19,7 +19,7 @@ Afterwards the tool can be built with CMake.
 
 The GnuPG command line application must be available in the PATH variable. The attack code uses the GnuPG to perform the SED packet trial encryptions. The attack application invokes it by issuing the command `gpg`.  This version does not need to support LibrePGP OCB packets.
 
-For the purpose of verifying the decryption of the initial unmodified packet and one produced by the attack, however, it must be ensured that a version of GnuPG is used that supports the LibrePGP OCB packets. 
+For the purpose of verifying the decryption of the initial unmodified packet and the one produced by the attack, however, it must be ensured that a version of GnuPG is used that supports the LibrePGP OCB packets.
 
 
 ## Sample attack
