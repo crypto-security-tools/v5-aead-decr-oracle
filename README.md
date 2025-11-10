@@ -71,7 +71,7 @@ You will see a lot of output and possibly password entry requests in case you ha
 
 List the latest sub directory of `run_time` (under the CMake build folder). If the attack was successful, then it contains at least one file ending in `pkesk-then-aead-packet-with-final-chunk-replaced`
 
-### Run decrypt the manipulated AEAD ciphertext
+### Decrypt the manipulated AEAD ciphertext
 Change into the cmake build directory and execute the command (replacing the time stamp with the one of the latest run from the previous step and choosing one file ending in `pkesk-then-aead-packet-with-final-chunk-replaced`, should there
 be multiple)
 ```
